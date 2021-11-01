@@ -1,5 +1,5 @@
 .editorconfig
-
+.env
 #
 # Standard Maven .gitignore
 #
