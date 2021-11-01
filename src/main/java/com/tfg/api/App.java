@@ -2,8 +2,9 @@ package com.tfg.api;
 
 import org.glassfish.grizzly.http.server.HttpServer;
 import org.glassfish.jersey.grizzly2.httpserver.GrizzlyHttpServerFactory;
-import org.glassfish.jersey.internal.ProcessingException;
+import org.glassfish.jersey.media.multipart.MultiPartFeature;
 import org.glassfish.jersey.server.ResourceConfig;
+
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -13,8 +14,9 @@ public final class App {
 
 	private static final String BASE_URI = "http://192.168.1.7:8080/api/";
 
-	private static final HttpServer createConection() throws ProcessingException, URISyntaxException {
+	private static HttpServer createConection() throws URISyntaxException {
 		ResourceConfig rc = new ResourceConfig().packages("com.tfg.api.resources");
+		rc.register(MultiPartFeature.class);
 		HttpServer server = GrizzlyHttpServerFactory.createHttpServer(URI.create(BASE_URI),rc);
 		return server;
 	}
