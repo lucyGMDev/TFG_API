@@ -76,6 +76,30 @@ public class DBManager {
     return null;
   }
 
+  public User getUserByEmail(String email)
+  {
+    String query = "SELECT * FROM users WHERE email = ?";
+    try(Connection conn = DriverManager.getConnection(url,username,password);
+    PreparedStatement statement = conn.prepareStatement(query))
+    {
+      statement.setString(1, email);
+      ResultSet result = statement.executeQuery();
+      if(result.next())
+      {
+        User user = new User(result.getString("email"), result.getString("username"),result.getString("name"),result.getString("last_name"),result.getDate("created_date"));
+        return user;
+      }
+    }
+    catch(SQLException e)
+    {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    }
+    catch(Exception e)
+    {
+      e.printStackTrace();
+    }
+    return null;
+  }
 
   
 }
