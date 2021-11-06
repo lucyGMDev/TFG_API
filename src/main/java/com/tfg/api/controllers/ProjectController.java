@@ -10,19 +10,22 @@ import com.tfg.api.data.Project;
 import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.JwtUtils;
+import com.tfg.api.utils.ProjectRepository;
 
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class ProjectController {
   public static Response createProject(final ProjectBody project, final String token) {
     //TODO: Validación de correos
-    //TODO: Crear repositorio GitHub
     Gson gson = new Gson();
     Dotenv dotenv = Dotenv.load();
     JwtUtils jwtUtils = new JwtUtils();
     DBManager dbManager = new DBManager();
     String owner = jwtUtils.getUserEmailFromJwt(token);
-
+    if(project.getOwner() == null) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Owner is required\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
     if (!project.getOwner().equals(owner)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"Project owner does not match with login user\"}").type(MediaType.APPLICATION_JSON)
@@ -37,11 +40,14 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    for (String coauthor : project.getCoauthors()) {
-      if (!dbManager.UserExistsByEmail(coauthor)) {
-        return Response.status(Response.Status.BAD_REQUEST)
-            .entity("{\"message\":\"You are trying to add a coauthor that already not exists\"}")
-            .type(MediaType.APPLICATION_JSON).build();
+    if(project.getCoauthors() != null)
+    {
+      for (String coauthor : project.getCoauthors()) {
+        if (!dbManager.UserExistsByEmail(coauthor)) {
+          return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"You are trying to add a coauthor that already not exists\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+        }
       }
     }
 
@@ -56,6 +62,12 @@ public class ProjectController {
     String projectPath = rootProjects + "/" + projectId;
     final File projectFolder = new File(projectPath);
     projectFolder.mkdirs();
+    try{
+      ProjectRepository repository = new ProjectRepository(projectPath);
+    }catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error creating repository\"}").type(MediaType.APPLICATION_JSON).build();
+    }
 
     String[] projectsSubdir = dotenv.get("PROJECT_SUBDIRS").split(",");
     for (String subDir : projectsSubdir) {
@@ -63,13 +75,15 @@ public class ProjectController {
       File subFolder = new File(subFolderPath);
       subFolder.mkdirs();
     }
-
-    for (String coauthor : project.getCoauthors()) {
-      int result = dbManager.addCoauthorToProject(projectId, coauthor);
-      if (result == -1) {
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-            .entity("{\"message\": \"Error while adding coauthor to project\"}").type(MediaType.APPLICATION_JSON)
-            .build();
+    if(project.getCoauthors()!=null)
+    {
+      for (String coauthor : project.getCoauthors()) {
+        int result = dbManager.addCoauthorToProject(projectId, coauthor);
+        if (result == -1) {
+          return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+              .entity("{\"message\": \"Error while adding coauthor to project\"}").type(MediaType.APPLICATION_JSON)
+              .build();
+        }
       }
     }
 

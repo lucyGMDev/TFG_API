@@ -133,8 +133,8 @@ public class DBManager {
     String query = "INSERT INTO coauthor_project VALUES (?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setLong(1, projectId);
-      statement.setString(2, coauthorEmail);
+      statement.setString(1, coauthorEmail);
+      statement.setLong(2, projectId);
       int rowInserted = statement.executeUpdate();
       if (rowInserted > 0) {
         return rowInserted;
@@ -175,10 +175,9 @@ public class DBManager {
         int numRows = 0;
         result.last();
         numRows = result.getRow();
-        result.first();
+        result.beforeFirst();
         String[] coauthors = new String[numRows];
         int cont = 0;
-        coauthors[cont++] = result.getString(1);
         while (result.next()) {
           coauthors[cont++] = result.getString(1);
         }
