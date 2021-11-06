@@ -11,6 +11,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 
 import com.tfg.api.filters.AdminJWTTokenNeededFilter;
+import com.tfg.api.filters.CorsFilter;
 import com.tfg.api.filters.JWTTokenNeededFilter;
 
 public final class App {
@@ -19,6 +20,7 @@ public final class App {
 
 	private static HttpServer createConection() throws URISyntaxException {
 		ResourceConfig rc = new ResourceConfig().packages("com.tfg.api.resources");
+		rc.register(new CorsFilter());
 		rc.register(MultiPartFeature.class);
 		rc.register(JWTTokenNeededFilter.class);
 		rc.register(AdminJWTTokenNeededFilter.class);
@@ -40,7 +42,6 @@ public final class App {
 			System.in.read();
 			server.shutdown();
 		} catch (Exception e) {
-			System.out.println("Hello");
 			e.printStackTrace();
 		}
 	}
