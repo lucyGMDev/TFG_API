@@ -10,8 +10,6 @@ import com.google.gson.Gson;
 import com.tfg.api.data.User;
 import com.tfg.api.data.bodies.UserBody;
 import com.tfg.api.utils.DBManager;
-import com.tfg.api.utils.JwtUtils;
-
 import io.github.cdimascio.dotenv.Dotenv;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
