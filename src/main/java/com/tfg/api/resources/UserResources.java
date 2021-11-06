@@ -11,7 +11,7 @@ import com.tfg.api.controllers.UserController;
 import com.tfg.api.data.bodies.UserBody;
 
 @Path("/login")
-public class User {
+public class UserResources {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
