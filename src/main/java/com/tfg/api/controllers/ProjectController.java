@@ -16,6 +16,7 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class ProjectController {
   public static Response createProject(final ProjectBody project, final String token) {
     //TODO: Validación de correos
+    //TODO: Crear repositorio GitHub
     Gson gson = new Gson();
     Dotenv dotenv = Dotenv.load();
     JwtUtils jwtUtils = new JwtUtils();
@@ -75,5 +76,49 @@ public class ProjectController {
     projectCreated.setCoauthors(project.getCoauthors());
     return Response.status(Response.Status.OK).entity(gson.toJson(projectCreated)).type(MediaType.APPLICATION_JSON)
         .build();
+  }
+
+  public static Response updateProject(final Long projectId,final ProjectBody projectBody, final String token)
+  {
+    JwtUtils jwtUtils = new JwtUtils();
+    DBManager dbManager = new DBManager();
+    Gson gson = new Gson();
+    String email = jwtUtils.getUserEmailFromJwt(token);
+    String projectOwner = dbManager.getProjectOwner(projectId);
+
+    Boolean canEdit = false;
+    if(!email.equals(projectOwner)) {
+      String[] projectCoauthors = dbManager.getProjectCoauthors(projectId);
+      for(String coauthor : projectCoauthors)
+      {
+        if(coauthor.equals(email))
+        {
+          canEdit = true;
+          break;
+        }
+      }
+    }
+    else{
+      canEdit=true;
+    }
+    if(!canEdit)
+    {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You do not have permission to update the project \"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    Project project = dbManager.getProjectById(projectId);
+    if(projectBody.getName()!=null) {
+      project.setName(projectBody.getName());
+    }
+    if(projectBody.getDescription()!=null) {
+      project.setDescription(projectBody.getDescription());
+    }
+    if(projectBody.getIsPublic()!=null)
+    {
+      project.setIsPublic(projectBody.getIsPublic());
+    }
+    Project projectUpdated = dbManager.updateProject(projectId, project);
+
+    return Response.status(Response.Status.OK).entity(gson.toJson(projectUpdated)).type(MediaType.APPLICATION_JSON).build();
   }
 }
