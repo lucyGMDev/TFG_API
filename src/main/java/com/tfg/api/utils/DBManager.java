@@ -235,4 +235,48 @@ public class DBManager {
     }
     return null;
   }
+
+  public Boolean userIsCoauthor(Long projectId, String coauthor)
+  {
+    String query = "SELECT * FROM coauthor_project WHERE project_id = ? AND coauthor_email = ?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query))
+    {
+      statement.setLong(1,projectId);
+      statement.setString(2,coauthor);
+      ResultSet result =statement.executeQuery();
+      if(result.next()) {
+        return true;
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return false;
+  }
+
+  public int addCoauthor(Long projectId, String coauthor)
+  {
+    String query = "INSERT INTO coauthor_project (coauthor_email,project_id) VALUES (?,?);";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query))
+    {
+      statement.setString(1,coauthor);
+      statement.setLong(2,projectId);
+      int numRows = statement.executeUpdate();
+      if(numRows > 0) {
+        return 1;
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return -1;
+  }
 }

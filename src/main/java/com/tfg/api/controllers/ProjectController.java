@@ -11,6 +11,7 @@ import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.JwtUtils;
 import com.tfg.api.utils.ProjectRepository;
+import com.tfg.api.utils.ProjectsUtil;
 
 import io.github.cdimascio.dotenv.Dotenv;
 
@@ -98,24 +99,7 @@ public class ProjectController {
     DBManager dbManager = new DBManager();
     Gson gson = new Gson();
     String email = jwtUtils.getUserEmailFromJwt(token);
-    String projectOwner = dbManager.getProjectOwner(projectId);
-
-    Boolean canEdit = false;
-    if(!email.equals(projectOwner)) {
-      String[] projectCoauthors = dbManager.getProjectCoauthors(projectId);
-      for(String coauthor : projectCoauthors)
-      {
-        if(coauthor.equals(email))
-        {
-          canEdit = true;
-          break;
-        }
-      }
-    }
-    else{
-      canEdit=true;
-    }
-    if(!canEdit)
+    if(ProjectsUtil.userCanEditProject(projectId, email))
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You do not have permission to update the project \"}").type(MediaType.APPLICATION_JSON).build();
     }
@@ -134,5 +118,29 @@ public class ProjectController {
     Project projectUpdated = dbManager.updateProject(projectId, project);
 
     return Response.status(Response.Status.OK).entity(gson.toJson(projectUpdated)).type(MediaType.APPLICATION_JSON).build();
+  }
+
+  public static Response addCoauthorToProject(final Long projectId, String token, String[] coauthors)
+  {
+    JwtUtils jwtUtils = new JwtUtils();
+    DBManager dbManager = new DBManager();
+    String userEmail = jwtUtils.getUserEmailFromJwt(token);
+    Gson gson = new Gson();
+    if(!ProjectsUtil.userCanEditProject(projectId, userEmail))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You do not have permission to add coauthors\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+    for(String coauthor : coauthors) {
+      if(dbManager.UserExistsByEmail(coauthor) && !dbManager.userIsCoauthor(projectId, coauthor))
+      {
+        if(dbManager.addCoauthor(projectId, coauthor)==-1)
+        {
+          return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"An error occurred while adding coauthor\"}").type(MediaType.APPLICATION_JSON).build();
+        }
+      }
+    }
+    Project project = dbManager.getProjectById(projectId);
+
+    return Response.status(Response.Status.OK).entity(gson.toJson(project)).type(MediaType.APPLICATION_JSON).build();
   }
 }

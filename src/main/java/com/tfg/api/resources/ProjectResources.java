@@ -34,4 +34,14 @@ public class ProjectResources {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.updateProject(projectId, project, token);
   }
+
+  @PUT
+  @Path("/{projectId}/addCoauthors")
+  @Produces(MediaType.APPLICATION_JSON)
+  @Consumes(MediaType.APPLICATION_JSON)
+  public Response addCoauthors(@HeaderParam("Authorization") final String authorizationHeader,@PathParam("projectId") final Long projectId, final ProjectBody coauthors)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.addCoauthorToProject(projectId,token,coauthors.getCoauthors());
+  }
 }
