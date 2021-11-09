@@ -7,6 +7,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
+import com.tfg.api.data.FileData;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.User;
 import com.tfg.api.data.bodies.ProjectBody;
@@ -129,6 +130,23 @@ public class DBManager {
     return null;
   }
 
+  public Boolean projectExitsById(Long projectId) {
+    String query = "SELECT * FROM project WHERE project_id = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return true;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false;
+  }
+
   public int addCoauthorToProject(Long projectId, String coauthorEmail) {
     String query = "INSERT INTO coauthor_project VALUES (?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -191,6 +209,26 @@ public class DBManager {
     return null;
   }
 
+  public Boolean projectIsPublic(Long projectId)
+  {
+    String query = "SELECT public FROM project WHERE project_id=?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query);)
+    {
+      statement.setLong(1, projectId);
+      ResultSet result = statement.executeQuery();
+      if(result.next()) {
+        return result.getBoolean("public");
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
   public Project getProjectById(Long projectId) {
     String query = "SELECT * FROM project WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -217,14 +255,14 @@ public class DBManager {
       statement.setString(1, project.getName());
       statement.setString(2, project.getDescription());
       statement.setBoolean(3, project.getIsPublic());
-      statement.setLong(4,projectId);
+      statement.setLong(4, projectId);
       int numRows = statement.executeUpdate();
-      if(numRows > 0) {
+      if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
-        if(result.next()) {
+        if (result.next()) {
           return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
-          result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-          result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId));
+              result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+              result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId));
         }
       }
 
@@ -236,20 +274,35 @@ public class DBManager {
     return null;
   }
 
-  public Boolean userIsCoauthor(Long projectId, String coauthor)
-  {
+  public int addCommitProject(Long projectId, String commitId) {
+    String query = "UPDATE project SET last_commit_id = ?, last_update_date = CURRENT_DATE WHERE project_id = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1,commitId);
+      statement.setLong(2, projectId);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return 1;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
+  public Boolean userIsCoauthor(Long projectId, String coauthor) {
     String query = "SELECT * FROM coauthor_project WHERE project_id = ? AND coauthor_email = ?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query))
-    {
-      statement.setLong(1,projectId);
-      statement.setString(2,coauthor);
-      ResultSet result =statement.executeQuery();
-      if(result.next()) {
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, coauthor);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
         return true;
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -258,20 +311,17 @@ public class DBManager {
     return false;
   }
 
-  public int addCoauthor(Long projectId, String coauthor)
-  {
+  public int addCoauthor(Long projectId, String coauthor) {
     String query = "INSERT INTO coauthor_project (coauthor_email,project_id) VALUES (?,?);";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query))
-    {
-      statement.setString(1,coauthor);
-      statement.setLong(2,projectId);
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, coauthor);
+      statement.setLong(2, projectId);
       int numRows = statement.executeUpdate();
-      if(numRows > 0) {
+      if (numRows > 0) {
         return 1;
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -279,4 +329,106 @@ public class DBManager {
 
     return -1;
   }
+
+  public int removeCoauthor(Long projectId, String coauthor) {
+    String query = "DELETE FROM coauthor_project WHERE project_id=? AND coauthor_email=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, coauthor);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return 1;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
+  public Boolean fileExists(Long projectId, String folderName, String fileName) {
+    String query = "SELECT * FROM file WHERE project_id=? AND directory_name=? AND file_name = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, folderName);
+      statement.setString(3, fileName);
+      ResultSet resultSet = statement.executeQuery();
+      if (resultSet.next()) {
+        return true;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false;
+  }
+
+  public int insertFile(Long projectId, String folderName, String fileName, Boolean isPublic, String description,
+      String author) {
+    String query = "INSERT INTO file (file_name,directory_name,project_id,uploaded_date,last_updated_date,is_public,description,author) VALUES(?,?,?,CURRENT_DATE,CURRENT_DATE,?,?,?);";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, fileName);
+      statement.setString(2, folderName);
+      statement.setLong(3, projectId);
+      statement.setBoolean(4, isPublic);
+      statement.setString(5, description);
+      statement.setString(6, author);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return 1;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
+  public FileData getFile(Long projectId, String folderName, String fileName) {
+    String query = "SELECT * FROM file WHERE project_id=? AND file_name=? AND directory_name=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, fileName);
+      statement.setString(3, folderName);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        return new FileData(rs.getString("file_name"), rs.getString("directory_name"), rs.getLong("project_id"),
+            rs.getDate("uploaded_date"), rs.getDate("last_updated_date"), rs.getBoolean("is_public"),
+            rs.getString("description"), rs.getString("author"));
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public Boolean fileIsPublic(String fileName, String directoryName, Long projectId)
+  {
+    String query = "SELECT is_public FROM file WHERE project_id=? AND file_name=? AND directory_name=?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setLong(1, projectId);
+      statement.setString(2,fileName);
+      statement.setString(3,directoryName);
+      ResultSet rs =statement.executeQuery();
+      if(rs.next()) {
+        return rs.getBoolean("is_public");
+      }
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
 }
+

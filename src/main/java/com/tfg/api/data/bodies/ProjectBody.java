@@ -4,7 +4,7 @@ public class ProjectBody {
   private String name;
   private String description;
   private Boolean isPublic;
-  private String owner;
+  private String owner = null;
   private String[] coauthors;
 
   public ProjectBody() {
@@ -43,6 +43,7 @@ public class ProjectBody {
   }
 
   public String getOwner() {
+    if(owner == null) return "";
     return owner;
   }
 
