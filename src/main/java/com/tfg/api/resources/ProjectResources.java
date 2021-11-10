@@ -79,4 +79,13 @@ public class ProjectResources {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFile(token,projectId,folderName,fileName);
   }
+
+  @PUT
+  @Path("/{projectId}/{folderName}/{fileName}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId, @PathParam("folderName")final String folderName, @PathParam("fileName") final String fileName)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return null;
+  }
 }

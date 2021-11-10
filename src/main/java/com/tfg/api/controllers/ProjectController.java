@@ -316,7 +316,7 @@ public class ProjectController {
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}").type(MediaType.APPLICATION_JSON).build();
     }
-
+    
     if(!ProjectsUtil.userCanAccessProject(projectId, userEmail))
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON).build();
