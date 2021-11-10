@@ -41,14 +41,5 @@ public class ProjectsUtil {
     return false;
   }
 
-  public static Boolean userCanAccessFile(Long projectId, String directoryName, String fileName, String userEmail) {
-    DBManager dbManager = new DBManager();
-    if (!userCanAccessProject(projectId, userEmail))
-      return false;
-
-    if (!dbManager.fileIsPublic(fileName, directoryName, projectId) && !userIsAuthor(projectId, userEmail))
-      return false;
-
-    return true;
-  }
+  
 }
