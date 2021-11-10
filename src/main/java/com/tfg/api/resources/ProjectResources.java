@@ -83,9 +83,9 @@ public class ProjectResources {
   @PUT
   @Path("/{projectId}/{folderName}/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response updateFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId, @PathParam("folderName")final String folderName, @PathParam("fileName") final String fileName)
+  public Response updateFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId, @PathParam("folderName")final String folderName, @PathParam("fileName") final String fileName, @FormDataParam("description")final String description, @FormDataParam("isPublic") final Boolean isPublic, @FormDataParam("file") final InputStream uploadedInputStream, @FormDataParam("file") final FormDataContentDisposition fileDetail)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return null;
+    return ProjectController.updateFile(token, projectId, folderName, fileName, description, isPublic, uploadedInputStream, fileDetail);
   }
 }

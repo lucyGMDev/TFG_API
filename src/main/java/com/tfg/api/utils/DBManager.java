@@ -430,5 +430,54 @@ public class DBManager {
     }
     return null;
   }
+
+  public FileData updateFile(Long projectId, String folderName, String fileName, FileData file)
+  {
+    String query = "UPDATE file SET last_updated_date = CURRENT_DATE, is_public=?, description=? WHERE project_id=? AND file_name=? AND directory_name=?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);)
+    {
+      statement.setBoolean(1,file.getIsPublic());
+      statement.setString(2,file.getDescription());
+      statement.setLong(3,projectId);
+      statement.setString(4,fileName);
+      statement.setString(5,folderName);
+      int numRows = statement.executeUpdate();
+      if(numRows > 0) {
+        ResultSet rs = statement.getGeneratedKeys();
+        if(rs.next()) {
+          return new FileData(rs.getString("file_name"),rs.getString("directory_name"),rs.getLong("project_id"),rs.getDate("uploaded_date"),rs.getDate("last_updated_date"),rs.getBoolean("is_public"),rs.getString("description"),rs.getString("author"));
+        }
+      }
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public int updateFileName(Long projectId, String directoryName, String oldFileName, String newFileName)
+  {
+    String query = "UPDATE file SET file_name = ? WHERE project_id=? AND directory_name=? AND file_name = ?";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query))
+    {
+      statement.setString(1,newFileName);
+      statement.setLong(2,projectId);
+      statement.setString(3,directoryName);
+      statement.setString(4,oldFileName);
+      int numRows = statement.executeUpdate();
+      if(numRows > 0)
+      {
+        return 1;
+      }
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
 }
 

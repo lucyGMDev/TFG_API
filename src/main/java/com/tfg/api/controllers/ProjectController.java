@@ -3,6 +3,7 @@ package com.tfg.api.controllers;
 import java.io.File;
 import java.io.InputStream;
 
+import javax.print.attribute.standard.Media;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -11,6 +12,7 @@ import com.tfg.api.data.FileData;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
+import com.tfg.api.utils.FileUtil;
 import com.tfg.api.utils.JwtUtils;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectsUtil;
@@ -316,18 +318,76 @@ public class ProjectController {
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}").type(MediaType.APPLICATION_JSON).build();
     }
-    
+
     if(!ProjectsUtil.userCanAccessProject(projectId, userEmail))
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON).build();
     }
     
-    if(!ProjectsUtil.userCanAccessFile(projectId, folderName, fileName, userEmail))
+    if(!FileUtil.userCanAccessFile(projectId, folderName, fileName, userEmail))
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON).build();
     }
     
     
     return Response.status(Response.Status.OK).entity(gson.toJson(file)).type(MediaType.APPLICATION_JSON).build();
+  }
+
+  public static Response updateFile(String token, final Long projectId, final String folderName, final String fileName, final String description, final Boolean isPublic, final InputStream uploadedInputStream, final FormDataContentDisposition fileDetail)
+  {
+    DBManager dbManager = new DBManager();
+    JwtUtils jwtUtils = new JwtUtils();
+    Gson gson = new Gson();
+    Dotenv dotenv = Dotenv.load();
+    String userEmail = jwtUtils.getUserEmailFromJwt(token);
+
+
+    FileData file = dbManager.getFile(projectId, folderName, fileName);
+    if(file == null)
+    {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Current file does not exist\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if(!ProjectsUtil.userIsAuthor(projectId, userEmail))
+    {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"You do not have permission to update this project\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+    if(isPublic!=null)
+    {
+      file.setIsPublic(isPublic);
+    }
+
+    if(description!=null) 
+    {
+      file.setDescription(description);
+    }
+    if(uploadedInputStream!=null)
+    {
+      if(fileDetail.getName() != fileName)
+      {
+        if(FileUtil.renameFile(projectId,folderName,fileName,fileDetail.getFileName())==-1)
+        {
+          return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while updating file\"}").type(MediaType.APPLICATION_JSON).build();
+        }
+        file.setFileName(fileDetail.getFileName());
+      }
+      String projectPath = dotenv.get("PROJECTS_ROOT");
+      try
+      {
+        ProjectRepository repository = new ProjectRepository(projectPath+"/"+projectId);
+        String commitId = repository.addFile(uploadedInputStream, folderName, fileDetail.getFileName());
+        dbManager.addCommitProject(projectId, commitId);
+      }
+      catch(Exception e)
+      {
+        e.printStackTrace();
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error updating file\"}").type(MediaType.APPLICATION_JSON).build();
+      }
+    }
+    FileData fileUpdated = dbManager.updateFile(projectId, folderName, file.getFileName(), file);
+    
+    return Response.status(Response.Status.OK).entity(gson.toJson(fileUpdated)).type(MediaType.APPLICATION_JSON).build();
   }
 }
