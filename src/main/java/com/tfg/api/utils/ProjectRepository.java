@@ -90,7 +90,7 @@ public class ProjectRepository {
     String path = getRepository().getDirectory().getParentFile().getAbsolutePath()+"/"+folderName;
     File fileUpdated = writeInfo(dStream,path,filename);
     getGit().add().addFilepattern(fileUpdated.getName()).call();
-    String commitMessage = "Add file: "+filename+"to folder "+folderName;
+    String commitMessage = "Add file: "+filename+" to folder "+folderName;
     RevCommit commit = getGit().commit().setMessage(commitMessage).call();
     return commit.getName();
   }

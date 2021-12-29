@@ -11,10 +11,12 @@ public class FileData {
   Boolean isPublic;
   String description;
   String author;
+  String short_url;
   public FileData() {
   }
+  
   public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedName,
-      Boolean isPublic, String description, String author) {
+      Boolean isPublic, String description, String author, String short_url) {
     this.fileName = fileName;
     this.directoryName = directoryName;
     this.projectId = projectId;
@@ -23,7 +25,9 @@ public class FileData {
     this.isPublic = isPublic;
     this.description = description;
     this.author = author;
+    this.short_url = short_url;
   }
+
   public String getFileName() {
     return fileName;
   }
@@ -71,6 +75,12 @@ public class FileData {
   }
   public void setAuthor(String author) {
     this.author = author;
+  }
+  public String getShort_url() {
+    return short_url;
+  }
+  public void setShort_url(String short_url) {
+    this.short_url = short_url;
   }
 
   

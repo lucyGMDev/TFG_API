@@ -63,8 +63,8 @@ public class ProjectResources {
 
   @POST
   @Path("/{projectId}/addFile")
-  @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.MULTIPART_FORM_DATA)
+  @Produces(MediaType.APPLICATION_JSON)
   public Response addFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @FormDataParam("folder") final String folderName,@FormDataParam("description") final String description,@FormDataParam("isPublic") final Boolean isPublic, @FormDataParam("file") final InputStream uploadedInputStream, @FormDataParam("file") final FormDataContentDisposition fileDetail)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
@@ -88,4 +88,23 @@ public class ProjectResources {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.updateFile(token, projectId, folderName, fileName, description, isPublic, uploadedInputStream, fileDetail);
   }
+
+  @POST
+  @Path("/{projectId}/{folderName}/{fileName}/getlink")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getFileLink(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId, @PathParam("folderName")final String folderName, @PathParam("fileName") final String fileName)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getFileLink(token, projectId, folderName, fileName);
+  }
+
+  @POST
+  @Path("{projectId}/getlink")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getFolderLink(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getFolderLink(token, projectId);
+  }
+  
 }

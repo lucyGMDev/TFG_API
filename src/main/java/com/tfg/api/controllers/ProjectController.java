@@ -2,6 +2,7 @@ package com.tfg.api.controllers;
 
 import java.io.File;
 import java.io.InputStream;
+import java.util.UUID;
 
 import javax.print.attribute.standard.Media;
 import javax.ws.rs.core.MediaType;
@@ -389,5 +390,82 @@ public class ProjectController {
     FileData fileUpdated = dbManager.updateFile(projectId, folderName, file.getFileName(), file);
     
     return Response.status(Response.Status.OK).entity(gson.toJson(fileUpdated)).type(MediaType.APPLICATION_JSON).build();
+  }
+
+  public static Response getFileLink(final String token, final Long projectId, final String folderName, final String fileName)
+  {
+    JwtUtils jwtUtils = new JwtUtils();
+    DBManager dbManager = new DBManager();
+    String userEmail;
+    try{
+      userEmail = jwtUtils.getUserEmailFromJwt(token);
+    }
+    catch(Exception e)
+    {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error loading user email\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+    if(!FileUtil.userCanAccessFile(projectId, folderName, fileName, userEmail))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+    String shortUrl = dbManager.getShortUrlFile(projectId, folderName, fileName);
+    if(shortUrl == null)
+    {
+      UUID fileUUID = UUID.randomUUID();
+      String[] uuidSplited = fileUUID.toString().split("-");
+      shortUrl = "";
+      for(String uuidElement : uuidSplited)
+      {
+        shortUrl += uuidElement;
+      }
+      if(dbManager.saveShortUrlFile(projectId, folderName, fileName,shortUrl)==-1)
+      {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error saving short url\"}").type(MediaType.APPLICATION_JSON).build();
+      }
+    }
+
+    return Response.status(Response.Status.OK).entity("{\"shortUrl\":\""+shortUrl+"\"}").type(MediaType.APPLICATION_JSON).build();
+  }
+
+  public static Response getFolderLink(final String token, final Long projectId)
+  {
+    JwtUtils jwtUtils = new JwtUtils();
+    DBManager dbManager = new DBManager();
+    String userEmail;
+    try{
+      userEmail = jwtUtils.getUserEmailFromJwt(token);
+    }
+    catch(Exception e)
+    {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting user email\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if(!ProjectsUtil.userCanAccessProject(projectId, userEmail))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    String projectUrl = dbManager.getShortUrlProject(projectId);
+    if(projectUrl == null)
+    {
+      UUID uuid = UUID.randomUUID();
+      String[] urlSplited = uuid.toString().split("-");
+      projectUrl = "";
+      for(String split : urlSplited)
+      {
+        projectUrl += split;
+      }
+
+      if(dbManager.saveShortUrlProject(projectId, projectUrl)==-1)
+      {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error creating short url\"}").type(MediaType.APPLICATION_JSON).build();
+      }
+
+    }
+
+
+    String response = "{\"shortUrl\":\""+projectUrl+"\"}";
+    return Response.status(Response.Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
   }
 }

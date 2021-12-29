@@ -7,16 +7,16 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
-import com.tfg.api.controllers.UserController;
+import com.tfg.api.controllers.AuthController;
 import com.tfg.api.data.bodies.UserBody;
 
-@Path("/login")
-public class UserResources {
+@Path("/create_user_sesion")
+public class AuthResources {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response login(UserBody user)
+  public Response CreateUserSesion(UserBody user)
   {
-    return UserController.login(user);
+    return AuthController.CreateUserSesion(user);
   }
 }

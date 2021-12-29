@@ -73,8 +73,8 @@ public class DBManager {
       statement.setString(1, email);
       ResultSet result = statement.executeQuery();
       if (result.next()) {
-        User user = new User(result.getString("email"), result.getString("username"), result.getString("name"),
-            result.getString("last_name"), result.getDate("created_date"));
+        User user = new User(result.getString("email"), result.getString("username"), result.getString("firstname"),
+            result.getString("lastname"), result.getDate("created_date"));
         return user;
       }
     } catch (SQLException e) {
@@ -209,19 +209,16 @@ public class DBManager {
     return null;
   }
 
-  public Boolean projectIsPublic(Long projectId)
-  {
+  public Boolean projectIsPublic(Long projectId) {
     String query = "SELECT public FROM project WHERE project_id=?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query);)
-    {
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query);) {
       statement.setLong(1, projectId);
       ResultSet result = statement.executeQuery();
-      if(result.next()) {
+      if (result.next()) {
         return result.getBoolean("public");
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -278,7 +275,7 @@ public class DBManager {
     String query = "UPDATE project SET last_commit_id = ?, last_update_date = CURRENT_DATE WHERE project_id = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1,commitId);
+      statement.setString(1, commitId);
       statement.setLong(2, projectId);
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
@@ -401,7 +398,7 @@ public class DBManager {
       if (rs.next()) {
         return new FileData(rs.getString("file_name"), rs.getString("directory_name"), rs.getLong("project_id"),
             rs.getDate("uploaded_date"), rs.getDate("last_updated_date"), rs.getBoolean("is_public"),
-            rs.getString("description"), rs.getString("author"));
+            rs.getString("description"), rs.getString("author"), rs.getString("short_url"));
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -411,19 +408,18 @@ public class DBManager {
     return null;
   }
 
-  public Boolean fileIsPublic(String fileName, String directoryName, Long projectId)
-  {
+  public Boolean fileIsPublic(String fileName, String directoryName, Long projectId) {
     String query = "SELECT is_public FROM file WHERE project_id=? AND file_name=? AND directory_name=?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
-      statement.setString(2,fileName);
-      statement.setString(3,directoryName);
-      ResultSet rs =statement.executeQuery();
-      if(rs.next()) {
+      statement.setString(2, fileName);
+      statement.setString(3, directoryName);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
         return rs.getBoolean("is_public");
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -431,25 +427,25 @@ public class DBManager {
     return null;
   }
 
-  public FileData updateFile(Long projectId, String folderName, String fileName, FileData file)
-  {
+  public FileData updateFile(Long projectId, String folderName, String fileName, FileData file) {
     String query = "UPDATE file SET last_updated_date = CURRENT_DATE, is_public=?, description=? WHERE project_id=? AND file_name=? AND directory_name=?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);)
-    {
-      statement.setBoolean(1,file.getIsPublic());
-      statement.setString(2,file.getDescription());
-      statement.setLong(3,projectId);
-      statement.setString(4,fileName);
-      statement.setString(5,folderName);
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
+      statement.setBoolean(1, file.getIsPublic());
+      statement.setString(2, file.getDescription());
+      statement.setLong(3, projectId);
+      statement.setString(4, fileName);
+      statement.setString(5, folderName);
       int numRows = statement.executeUpdate();
-      if(numRows > 0) {
+      if (numRows > 0) {
         ResultSet rs = statement.getGeneratedKeys();
-        if(rs.next()) {
-          return new FileData(rs.getString("file_name"),rs.getString("directory_name"),rs.getLong("project_id"),rs.getDate("uploaded_date"),rs.getDate("last_updated_date"),rs.getBoolean("is_public"),rs.getString("description"),rs.getString("author"));
+        if (rs.next()) {
+          return new FileData(rs.getString("file_name"), rs.getString("directory_name"), rs.getLong("project_id"),
+              rs.getDate("uploaded_date"), rs.getDate("last_updated_date"), rs.getBoolean("is_public"),
+              rs.getString("description"), rs.getString("author"), rs.getString("short_url"));
         }
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -457,18 +453,99 @@ public class DBManager {
     return null;
   }
 
-  public int updateFileName(Long projectId, String directoryName, String oldFileName, String newFileName)
-  {
+  public int updateFileName(Long projectId, String directoryName, String oldFileName, String newFileName) {
     String query = "UPDATE file SET file_name = ? WHERE project_id=? AND directory_name=? AND file_name = ?";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, newFileName);
+      statement.setLong(2, projectId);
+      statement.setString(3, directoryName);
+      statement.setString(4, oldFileName);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return 1;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
+  public String getShortUrlFile(final Long projectId, final String directoryName, final String fileName) {
+    String query = "SELECT short_url FROM file WHERE project_id=? AND directory_name=? AND file_name=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query);) {
+      statement.setLong(1, projectId);
+      statement.setString(2, directoryName);
+      statement.setString(3, fileName);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next())
+        return rs.getString("short_url");
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
+  }
+
+  public int saveShortUrlFile(final Long projectId, final String directoryName, final String fileName, final String shortUrl)
+  {
+    String query = "UPDATE file SET short_url=? WHERE project_id=? AND directory_name=? AND file_name = ?;";
     try(Connection conn = DriverManager.getConnection(url, username, password);
     PreparedStatement statement = conn.prepareStatement(query))
     {
-      statement.setString(1,newFileName);
-      statement.setLong(2,projectId);
-      statement.setString(3,directoryName);
-      statement.setString(4,oldFileName);
+      statement.setString(1, shortUrl);
+      statement.setLong(2, projectId);
+      statement.setString(3, directoryName);
+      statement.setString(4, fileName);
       int numRows = statement.executeUpdate();
-      if(numRows > 0)
+      if(numRows>0)
+      {
+        return 1;
+      }
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
+  public String getShortUrlProject(final Long projectId)
+  {
+    String query = "SELECT short_url FROM project WHERE project_id=?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query);)
+    {
+      statement.setLong(1, projectId);
+      ResultSet rs = statement.executeQuery();
+      if(rs.next())
+      {
+        return rs.getString(1);
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public int saveShortUrlProject(final Long projectId, final String shortUrl)
+  {
+    String query = "UPDATE project SET short_url=? WHERE project_id=?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query))
+    {
+      statement.setString(1, shortUrl);
+      statement.setLong(2, projectId);
+      int numRows = statement.executeUpdate();
+      if(numRows>0)
       {
         return 1;
       }
@@ -480,4 +557,3 @@ public class DBManager {
     return -1;
   }
 }
-
