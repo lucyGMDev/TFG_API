@@ -53,8 +53,8 @@ public class DBManager {
       if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
         if (result.next()) {
-          User user = new User(result.getString("email"), result.getString("username"), result.getString("name"),
-              result.getString("last_name"), result.getDate("created_date"));
+          User user = new User(result.getString("email"), result.getString("username"), result.getString("firstname"),
+              result.getString("lastname"), result.getDate("created_date"));
           return user;
         }
       }
