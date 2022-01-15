@@ -7,7 +7,7 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
 
 import com.google.gson.Gson;
-import com.tfg.api.data.GoogleLoginTokenJson;
+import com.tfg.api.data.OAuthLoginAuthenticationJSON;
 import com.tfg.api.data.User;
 import com.tfg.api.data.bodies.UserBody;
 import com.tfg.api.utils.DBManager;
@@ -32,30 +32,30 @@ public class AuthenticationController {
     if(user.getEmail() == null) 
       return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Email is required\"}").type(MediaType.APPLICATION_JSON).build();
     
-    StringBuilder resultado = new StringBuilder();
-    URL googleAuthURL=null;
-    String validationGoogleLoginURL = environmentVariablesManager.get("OAUTH2_GOOGLE_LOGIN_VALIDATION_EMAIL");
+    StringBuilder oauthAuthenticationResponse = new StringBuilder();
+    URL authenticationLoginURL=null;
+    String authenticationLoginURLString = environmentVariablesManager.get("OAUTH2_LOGIN_VALIDATION_URL");
     
     try {
-      googleAuthURL = new URL(validationGoogleLoginURL);
+      authenticationLoginURL = new URL(authenticationLoginURLString);
     } catch (MalformedURLException e1) {
       e1.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
     }
 
-    HttpURLConnection googleAuthHttpConnection=null;
+    HttpURLConnection authenticationHttpConnection=null;
     try {
-      googleAuthHttpConnection = (HttpURLConnection) googleAuthURL.openConnection();
-      googleAuthHttpConnection.setRequestMethod("GET");
+      authenticationHttpConnection = (HttpURLConnection) authenticationLoginURL.openConnection();
+      authenticationHttpConnection.setRequestMethod("GET");
       String authorizationHeader = "Bearer "+OAuthtoken;
-      googleAuthHttpConnection.setRequestProperty("Authorization", authorizationHeader);
+      authenticationHttpConnection.setRequestProperty("Authorization", authorizationHeader);
     } catch (IOException e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
     }
     BufferedReader rd=null;
     try {
-      rd = new BufferedReader(new InputStreamReader(googleAuthHttpConnection.getInputStream()));
+      rd = new BufferedReader(new InputStreamReader(authenticationHttpConnection.getInputStream()));
     } catch (IOException e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
@@ -63,7 +63,7 @@ public class AuthenticationController {
     String linea;
     try {
       while ((linea = rd.readLine()) != null) {
-        resultado.append(linea);
+        oauthAuthenticationResponse.append(linea);
       }
     } catch (IOException e) {
       e.printStackTrace();
@@ -76,9 +76,9 @@ public class AuthenticationController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
     }
     
-    GoogleLoginTokenJson googleLoginToken = jsonManager.fromJson(resultado.toString(), GoogleLoginTokenJson.class);
+    OAuthLoginAuthenticationJSON oauthLoginToken = jsonManager.fromJson(oauthAuthenticationResponse.toString(), OAuthLoginAuthenticationJSON.class);
     
-    if(!googleLoginToken.getEmail_verified() || googleLoginToken.getEmail().compareTo(user.getEmail())!=0)
+    if(!oauthLoginToken.getEmail_verified() || oauthLoginToken.getEmail().compareTo(user.getEmail())!=0)
     {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Failure on authentication\"}").build();
     }
@@ -107,7 +107,7 @@ public class AuthenticationController {
       .signWith(SignatureAlgorithm.HS512, environmentVariablesManager.get("JWT_SECRET"))
       .compact();
     
-    String response = "{\"user\":"+jsonManager.toJson(userLogged)+", \"token\":\""+token+"\"}";
+    String response = "{\"user\":"+jsonManager.toJson(userLogged)+", \"token\":\""+token+"\""+"}";
     return Response.status(Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
   }
 }
