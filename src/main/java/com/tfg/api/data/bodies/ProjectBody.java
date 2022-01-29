@@ -6,7 +6,6 @@ public class ProjectBody {
   private Boolean isPublic;
   private String owner = null;
   private String[] coauthors;
-
   public ProjectBody() {
   }
 

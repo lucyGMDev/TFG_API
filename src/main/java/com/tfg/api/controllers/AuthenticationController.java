@@ -24,41 +24,52 @@ import java.net.URL;
 
 
 public class AuthenticationController {
-  public static Response CreateUserSesion(UserBody user, final String OAuthtoken){
+  public static Response createUserSesion(UserBody user, final String OAuthtoken) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     Dotenv environmentVariablesManager = Dotenv.load();
     User userLogged;
-    if(user.getEmail() == null) 
-      return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Email is required\"}").type(MediaType.APPLICATION_JSON).build();
-    
+  
+    if(user == null)
+    {
+      return Response.status(Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"User is required\"}").build();
+    }
+    if (user.getEmail() == null)
+      return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Email is required\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+
+    //TODO: Add OAuthtoken crypted
+
     StringBuilder oauthAuthenticationResponse = new StringBuilder();
-    URL authenticationLoginURL=null;
+    URL authenticationLoginURL = null;
     String authenticationLoginURLString = environmentVariablesManager.get("OAUTH2_LOGIN_VALIDATION_URL");
-    
+
     try {
       authenticationLoginURL = new URL(authenticationLoginURLString);
     } catch (MalformedURLException e1) {
       e1.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while validating login\"}").build();
     }
 
-    HttpURLConnection authenticationHttpConnection=null;
+    HttpURLConnection authenticationHttpConnection = null;
     try {
       authenticationHttpConnection = (HttpURLConnection) authenticationLoginURL.openConnection();
       authenticationHttpConnection.setRequestMethod("GET");
-      String authorizationHeader = "Bearer "+OAuthtoken;
+      String authorizationHeader = "Bearer " + OAuthtoken;
       authenticationHttpConnection.setRequestProperty("Authorization", authorizationHeader);
     } catch (IOException e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while validating login\"}").build();
     }
-    BufferedReader rd=null;
+    BufferedReader rd = null;
     try {
       rd = new BufferedReader(new InputStreamReader(authenticationHttpConnection.getInputStream()));
     } catch (IOException e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while validating login\"}").build();
     }
     String linea;
     try {
@@ -67,47 +78,47 @@ public class AuthenticationController {
       }
     } catch (IOException e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while validating login\"}").build();
     }
     try {
       rd.close();
     } catch (IOException e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while validating login\"}").build();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while validating login\"}").build();
     }
-    
-    OAuthLoginAuthenticationJSON oauthLoginToken = jsonManager.fromJson(oauthAuthenticationResponse.toString(), OAuthLoginAuthenticationJSON.class);
-    
-    if(!oauthLoginToken.getEmail_verified() || oauthLoginToken.getEmail().compareTo(user.getEmail())!=0)
-    {
+
+    OAuthLoginAuthenticationJSON oauthLoginToken = jsonManager.fromJson(oauthAuthenticationResponse.toString(),
+        OAuthLoginAuthenticationJSON.class);
+
+    if (!oauthLoginToken.getEmail_verified() || oauthLoginToken.getEmail().compareTo(user.getEmail()) != 0) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Failure on authentication\"}").build();
     }
 
-    if(database.UserExistsByEmail(user.getEmail()))
-    {
+    if (database.userExistsByEmail(user.getEmail())) {
       userLogged = database.getUserByEmail(user.getEmail());
-      if(userLogged == null)
-      {
-        return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Error while login\"}").type(MediaType.APPLICATION_JSON).build();
+      if (userLogged == null) {
+        return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Error while login\"}")
+            .type(MediaType.APPLICATION_JSON).build();
       }
-    }
-    else
-    {
+    } else {
       userLogged = database.insertUser(user.getEmail());
-      if(userLogged == null)
-      {
-        return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while creating user\"}").type(MediaType.APPLICATION_JSON).build();
+      if (userLogged == null) {
+        return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while creating user\"}")
+            .type(MediaType.APPLICATION_JSON).build();
       }
     }
     String token = Jwts.builder()
-      .setSubject(user.getEmail())
-      .setIssuer("/create_user_sesion")
-      .setIssuedAt(new Date())
-      .setExpiration(new Date(new Date().getTime() + Integer.parseInt(environmentVariablesManager.get("JWT_TIME_EXP"))))
-      .signWith(SignatureAlgorithm.HS512, environmentVariablesManager.get("JWT_SECRET"))
-      .compact();
-    
-    String response = "{\"user\":"+jsonManager.toJson(userLogged)+", \"token\":\""+token+"\""+"}";
+        .setSubject(user.getEmail())
+        .setIssuer("/create_user_sesion")
+        .setIssuedAt(new Date())
+        .setExpiration(
+            new Date(new Date().getTime() + Integer.parseInt(environmentVariablesManager.get("JWT_TIME_EXP"))))
+        .signWith(SignatureAlgorithm.HS512, environmentVariablesManager.get("JWT_SECRET"))
+        .compact();
+
+    String response = "{\"user\":" + jsonManager.toJson(userLogged) + ", \"token\":\"" + token + "\"" + "}";
     return Response.status(Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
   }
 }

@@ -16,8 +16,8 @@ public class AuthenticationResources {
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response CreateUserSesion(@HeaderParam("Authorization") final String authorizationHeader, UserBody user) {
+  public Response createUserSesion(@HeaderParam("Authorization") final String authorizationHeader, UserBody user) {
     String OAuthtoken = authorizationHeader.substring("Bearer".length()).trim();
-    return AuthenticationController.CreateUserSesion(user,OAuthtoken);
+    return AuthenticationController.createUserSesion(user,OAuthtoken);
   }
 }

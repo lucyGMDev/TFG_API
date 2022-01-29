@@ -22,19 +22,29 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 
 @Path("/project")
 public class ProjectResources {
-  @POST
+
+  @GET
+  @Path("/{projectId}")
   @Produces(MediaType.APPLICATION_JSON)
+  public Response getProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getProject(token, projectId);
+  }
+
+  @POST
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public Response createProject(@HeaderParam("Authorization") final String authorizationHeader,final ProjectBody project)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.createProject(project, token);
+    return ProjectController.CreateProject(project, token);
   }
 
   @PUT
   @Path("/{projectId}")
-  @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public Response updateProject(@HeaderParam("Authorization") final String authorizationHeader,@PathParam("projectId") final Long projectId ,final ProjectBody project)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
@@ -43,8 +53,8 @@ public class ProjectResources {
 
   @PUT
   @Path("/{projectId}/addCoauthors")
-  @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public Response addCoauthors(@HeaderParam("Authorization") final String authorizationHeader,@PathParam("projectId") final Long projectId, final ProjectBody coauthors)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
@@ -53,8 +63,8 @@ public class ProjectResources {
 
   @PUT
   @Path("/{projectId}/removeCoauthors")
-  @Produces(MediaType.APPLICATION_JSON)
   @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_JSON)
   public Response removeCoauthors(@HeaderParam("Authorization") final String authorizationHeader,@PathParam("projectId") final Long projectId, final ProjectBody coauthors)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
@@ -78,6 +88,15 @@ public class ProjectResources {
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFile(token,projectId,folderName,fileName);
+  }
+
+  @GET
+  @Path("/{projectId}/{folderName}/{fileName}/{versionId}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getFileFromVersion(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName")String folderName, @PathParam("fileName") final String fileName,@PathParam("versionId") final String versionId)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getFileFromVersion(token,projectId,folderName,fileName,versionId);
   }
 
   @PUT
@@ -105,6 +124,15 @@ public class ProjectResources {
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFolderLink(token, projectId);
+  }
+
+  @POST
+  @Path("{projectId}/createVersion")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response createVersion(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @FormDataParam("name") final String name, @FormDataParam("isPublic") final Boolean isPublic)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.createVersion(token, projectId, name,isPublic);
   }
   
 }

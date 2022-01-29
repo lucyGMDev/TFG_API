@@ -8,24 +8,20 @@ public class FileData {
   Long projectId;
   Date uploadedDate;
   Date lastUpdatedName;
-  Boolean isPublic;
-  String description;
   String author;
-  String short_url;
+  String description;
+  Boolean isPublic;
+  
   public FileData() {
   }
   
-  public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedName,
-      Boolean isPublic, String description, String author, String short_url) {
+  public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedName, String author) {
     this.fileName = fileName;
     this.directoryName = directoryName;
     this.projectId = projectId;
     this.uploadedDate = uploadedDate;
     this.lastUpdatedName = lastUpdatedName;
-    this.isPublic = isPublic;
-    this.description = description;
     this.author = author;
-    this.short_url = short_url;
   }
 
   public String getFileName() {
@@ -58,30 +54,29 @@ public class FileData {
   public void setLastUpdatedName(Date lastUpdatedName) {
     this.lastUpdatedName = lastUpdatedName;
   }
-  public Boolean getIsPublic() {
-    return isPublic;
-  }
-  public void setIsPublic(Boolean isPublic) {
-    this.isPublic = isPublic;
-  }
-  public String getDescription() {
-    return description;
-  }
-  public void setDescription(String description) {
-    this.description = description;
-  }
   public String getAuthor() {
     return author;
   }
   public void setAuthor(String author) {
     this.author = author;
   }
-  public String getShort_url() {
-    return short_url;
+
+  public String getDescription() {
+    return description;
   }
-  public void setShort_url(String short_url) {
-    this.short_url = short_url;
+
+  public void setDescription(String description) {
+    this.description = description;
   }
+
+  public Boolean getIsPublic() {
+    return isPublic;
+  }
+
+  public void setIsPublic(Boolean isPublic) {
+    this.isPublic = isPublic;
+  }
+  
 
   
 }
