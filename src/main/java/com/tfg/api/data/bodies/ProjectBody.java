@@ -4,7 +4,7 @@ public class ProjectBody {
   private String name;
   private String description;
   private Boolean isPublic;
-  private String owner = null;
+  private String owner;
   private String[] coauthors;
   public ProjectBody() {
   }
