@@ -14,7 +14,6 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import com.tfg.api.controllers.ProjectController;
-import com.tfg.api.data.bodies.CommentBody;
 import com.tfg.api.data.bodies.ProjectBody;
 
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -87,7 +86,7 @@ public class ProjectResources {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFilesFromFolder(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId,@PathParam("folderName") final String folderName, @PathParam("versionId") final String versionId){
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.getFilesFromFolder(token, projectId, folderName);
+    return ProjectController.getFilesFromFolder(token, projectId, folderName,versionId);
   }
 
   @GET
@@ -142,16 +141,7 @@ public class ProjectResources {
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.createVersion(token, projectId, name,isPublic);
-  }
-
-  @POST
-  @Path("{projectId}/postComment")
-  @Consumes(MediaType.APPLICATION_JSON)
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response postComment(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, final CommentBody comment)
-  {
-    String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.postComment(token, projectId, comment);
-  }
+  }  
   
+
 }

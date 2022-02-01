@@ -1,15 +1,23 @@
 package com.tfg.api.data.bodies;
 
 public class CommentBody {
+  private Long projectId;
   private String writterEmail;
   private String commentText;
   private String responseCommentId;
   public CommentBody() {
   }
-  public CommentBody(String writterEmail, String commentText, String responseCommentId) {
+  public CommentBody(Long projectId, String writterEmail, String commentText, String responseCommentId) {
+    this.projectId = projectId;
     this.writterEmail = writterEmail;
     this.commentText = commentText;
     this.responseCommentId = responseCommentId;
+  }
+  public Long getProjectId() {
+    return projectId;
+  }
+  public void setProjectId(Long projcetId) {
+    this.projectId = projcetId;
   }
   public String getWritterEmail() {
     return writterEmail;
@@ -29,6 +37,7 @@ public class CommentBody {
   public void setResponseCommentId(String responseCommentId) {
     this.responseCommentId = responseCommentId;
   }
+  
 
   
 }

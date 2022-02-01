@@ -8,7 +8,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.tfg.api.data.Comment;
-import com.tfg.api.data.FileData;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.User;
 import com.tfg.api.data.bodies.ProjectBody;
@@ -362,108 +361,6 @@ public class DBManager {
     return -1;
   }
 
-  public Boolean fileExists(Long projectId, String folderName, String fileName) {
-    String query = "SELECT * FROM file WHERE project_id=? AND directory_name=? AND file_name = ?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setLong(1, projectId);
-      statement.setString(2, folderName);
-      statement.setString(3, fileName);
-      ResultSet resultSet = statement.executeQuery();
-      if (resultSet.next()) {
-        return true;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return false;
-  }
-
-  public int insertFile(Long projectId, String folderName, String fileName, Boolean isPublic, String description,
-      String author) {
-    String query = "INSERT INTO file (file_name,directory_name,project_id,uploaded_date,last_updated_date,author) VALUES(?,?,?,CURRENT_DATE,CURRENT_DATE,?);";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, fileName);
-      statement.setString(2, folderName);
-      statement.setLong(3, projectId);
-      statement.setString(4, author);
-      int numRows = statement.executeUpdate();
-      if (numRows > 0) {
-        return 1;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return -1;
-  }
-
-  public FileData getFile(Long projectId, String folderName, String fileName) {
-    String query = "SELECT * FROM file WHERE project_id=? AND file_name=? AND directory_name=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setLong(1, projectId);
-      statement.setString(2, fileName);
-      statement.setString(3, folderName);
-      ResultSet rs = statement.executeQuery();
-      if (rs.next()) {
-        return new FileData(rs.getString("file_name"), rs.getString("directory_name"), rs.getLong("project_id"),
-            rs.getDate("uploaded_date"), rs.getDate("last_updated_date"), rs.getString("author"));
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return null;
-  }
-
-  public FileData updateFile(Long projectId, String folderName, String fileName) {
-    String query = "UPDATE file SET last_updated_date = CURRENT_DATE WHERE project_id=? AND file_name=? AND directory_name=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
-      statement.setLong(1, projectId);
-      statement.setString(2, fileName);
-      statement.setString(3, folderName);
-      int numRows = statement.executeUpdate();
-      if (numRows > 0) {
-        ResultSet rs = statement.getGeneratedKeys();
-        if (rs.next()) {
-          return new FileData(rs.getString("file_name"), rs.getString("directory_name"), rs.getLong("project_id"),
-              rs.getDate("uploaded_date"), rs.getDate("last_updated_date"), rs.getString("author"));
-        }
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return null;
-  }
-
-  public int updateFileName(Long projectId, String directoryName, String oldFileName, String newFileName) {
-    String query = "UPDATE file SET file_name = ? WHERE project_id=? AND directory_name=? AND file_name = ?";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, newFileName);
-      statement.setLong(2, projectId);
-      statement.setString(3, directoryName);
-      statement.setString(4, oldFileName);
-      int numRows = statement.executeUpdate();
-      if (numRows > 0) {
-        return 1;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return -1;
-  }
 
   public String getShortUrlFile(final Long projectId, final String directoryName, final String fileName) {
     String query = "SELECT short_url FROM file WHERE project_id=? AND directory_name=? AND file_name=?;";

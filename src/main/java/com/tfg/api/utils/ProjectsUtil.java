@@ -1,5 +1,10 @@
 package com.tfg.api.utils;
 
+import java.io.File;
+
+import com.tfg.api.data.FileData;
+import com.tfg.api.data.FileList;
+
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class ProjectsUtil {
@@ -39,6 +44,24 @@ public class ProjectsUtil {
     if (userIsAuthor(projectId, userEmail))
       return true;
     return false;
+  }
+
+
+  public static FileList getFilesFromFolder(Long projectId, String folderName, Boolean isAuthor) throws Exception{
+    Dotenv dotenv = Dotenv.load();
+    String folderPath = dotenv.get("PROJECTS_ROOT")+"/"+projectId+"/"+folderName;
+    File folder = new File(folderPath);
+    File[] files = folder.listFiles();
+    FileList fileList = new FileList();
+    for (File file : files)
+    {
+      FileData metadataFile = FileUtil.getMetadataFile(projectId, folderName, file.getName());
+      if(isAuthor || metadataFile.getIsPublic())
+      {
+        fileList.getFiles().add(metadataFile);
+      }
+    }
+    return fileList;
   }
 
   

@@ -7,18 +7,16 @@ import java.io.FileReader;
 import java.io.IOException;
 
 import com.google.gson.Gson;
-import com.tfg.api.data.MetadataFile;
+import com.tfg.api.data.FileData;
 
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class FileUtil {
 
-  public static MetadataFile getMetadataFile(Long projectId, String directoryName, String filename) {
+  public static FileData getMetadataFile(Long projectId, String directoryName, String filename) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
     String metadataFileName = getMetadataFilename(filename);
-    // File metadataFile = new File(environmentVariablesManager.get("PROJECTS_ROOT")
-    // + "/" + projectId + "/" + directoryName + "/" + metadataFileName);
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName
         + "/metadata/" + metadataFileName;
     try {
@@ -31,7 +29,7 @@ public class FileUtil {
       if (reader != null) {
         reader.close();
       }
-      MetadataFile metadataFile = jsonManager.fromJson(metadataFileContent, MetadataFile.class);
+      FileData metadataFile = jsonManager.fromJson(metadataFileContent, FileData.class);
       return metadataFile;
     } catch (FileNotFoundException e) {
       e.printStackTrace();
@@ -39,14 +37,14 @@ public class FileUtil {
       e.printStackTrace();
     }
 
-    return null;
+    throw new Exception("Error while getting metadata");
   }
 
   public static Boolean userCanAccessFile(Long projectId, String directoryName, String fileName, String userEmail)
       throws Exception {
     if (!ProjectsUtil.userCanAccessProject(projectId, userEmail))
       return false;
-    MetadataFile metadataFile = getMetadataFile(projectId, directoryName, fileName);
+    FileData metadataFile = getMetadataFile(projectId, directoryName, fileName);
     if (metadataFile == null) {
       throw new Exception("Error getting metadata file");
     }
@@ -57,11 +55,9 @@ public class FileUtil {
     return true;
   }
 
-  public static int renameFile(Long projectId, String directoryName, String oldFileName, String newFileName,
-      Boolean fileExistsDatabase) {
-    DBManager dbManager = new DBManager();
+  public static int renameFile(Long projectId, String directoryName, String oldFileName, String newFileName) {
     Dotenv environmentVariablesManager = Dotenv.load();
-    if (!dbManager.fileExists(projectId, directoryName, newFileName)) {
+    if (fileExists(projectId, directoryName, oldFileName)) {
 
       File oldFile = new File(
           environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName + "/" + oldFileName);
@@ -69,16 +65,6 @@ public class FileUtil {
           environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName + "/" + newFileName);
       try {
         oldFile.renameTo(newFile);
-        if (fileExistsDatabase == true) {
-          if (dbManager.updateFileName(projectId, directoryName, oldFileName, newFileName) == -1) {
-            newFile = new File(environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName
-                + "/" + oldFileName);
-            oldFile = new File(environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName
-                + "/" + newFileName);
-            oldFile.renameTo(newFile);
-            return -1;
-          }
-        }
         return 1;
       } catch (Exception e) {
         e.printStackTrace();
@@ -89,9 +75,27 @@ public class FileUtil {
   }
 
   public static String getMetadataFilename(String originalFilename) {
-    String originalFilenameWithoutExtension = originalFilename.replaceFirst("[.][^.]+$", "");
-    originalFilenameWithoutExtension = originalFilenameWithoutExtension.equals("") ? originalFilename : originalFilenameWithoutExtension;
-    String metadataFilename = originalFilenameWithoutExtension + ".json";
-    return metadataFilename;
+    // String originalFilenameWithoutExtension =
+    // originalFilename.replaceFirst("[.][^.]+$", "");
+    // originalFilenameWithoutExtension =
+    // originalFilenameWithoutExtension.equals("") ? originalFilename :
+    // originalFilenameWithoutExtension;
+    // String metadataFilename = originalFilenameWithoutExtension + ".json";
+    // return metadataFilename;
+    return originalFilename + ".json";
   }
+
+  public static Boolean fileExists(String path) {
+    File file = new File(path);
+    return file.exists();
+  }
+
+  public static Boolean fileExists(Long projectId, String foldername, String filename) {
+    Dotenv environmentVariablesManager = Dotenv.load();
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + foldername + "/"
+        + filename;
+    File file = new File(path);
+    return file.exists();
+  }
+
 }

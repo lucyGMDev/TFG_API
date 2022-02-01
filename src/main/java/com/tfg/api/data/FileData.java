@@ -7,7 +7,7 @@ public class FileData {
   String directoryName;
   Long projectId;
   Date uploadedDate;
-  Date lastUpdatedName;
+  Date lastUpdatedDate;
   String author;
   String description;
   Boolean isPublic;
@@ -15,13 +15,15 @@ public class FileData {
   public FileData() {
   }
   
-  public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedName, String author) {
+  public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedDate, String author, String description, Boolean isPublic) {
     this.fileName = fileName;
     this.directoryName = directoryName;
     this.projectId = projectId;
     this.uploadedDate = uploadedDate;
-    this.lastUpdatedName = lastUpdatedName;
+    this.lastUpdatedDate = lastUpdatedDate;
     this.author = author;
+    this.description = description;
+    this.isPublic = isPublic;
   }
 
   public String getFileName() {
@@ -48,11 +50,11 @@ public class FileData {
   public void setUploadedDate(Date uploadedDate) {
     this.uploadedDate = uploadedDate;
   }
-  public Date getLastUpdatedName() {
-    return lastUpdatedName;
+  public Date getLastUpdatedDate() {
+    return lastUpdatedDate;
   }
-  public void setLastUpdatedName(Date lastUpdatedName) {
-    this.lastUpdatedName = lastUpdatedName;
+  public void setLastUpdatedDate (Date lastUpdatedDate) {
+    this.lastUpdatedDate = lastUpdatedDate;
   }
   public String getAuthor() {
     return author;
