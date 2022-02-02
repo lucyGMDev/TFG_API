@@ -13,12 +13,14 @@ import com.google.gson.Gson;
 import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
 import com.tfg.api.data.Project;
+import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
-import com.tfg.api.utils.FileUtil;
+import com.tfg.api.utils.FileUtils;
 import com.tfg.api.utils.JwtUtils;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectsUtil;
+import com.tfg.api.utils.VersionsUtils;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
@@ -373,7 +375,7 @@ public class ProjectController {
             .entity("{\"message\":\"Error while adding file to project\"}").build();
       }
     }
-    if (FileUtil.fileExists(projectId, folderName, filename)) {
+    if (FileUtils.fileExists(projectId, folderName, filename)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"This file current exists on this folder\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -421,7 +423,7 @@ public class ProjectController {
 
     FileData metadataFile;
     try {
-      metadataFile = FileUtil.getMetadataFile(projectId, folderName, filename);
+      metadataFile = FileUtils.getMetadataFile(projectId, folderName, filename);
     } catch (Exception e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while getting file\"}")
@@ -434,7 +436,7 @@ public class ProjectController {
 
   public static Response getFilesFromFolder(final String token, final Long projectId, final String folderName,
       final String versionId) {
-    //TODO: Find error
+    DBManager database = new DBManager();
     Dotenv environmentVariablesManager = Dotenv.load();
     JwtUtils jwtManager = new JwtUtils();
     Gson jsonManager = new Gson();
@@ -453,23 +455,28 @@ public class ProjectController {
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
-    String path = environmentVariablesManager.get("PROJECTS_ROOT")+"/"+ projectId;
+    if (!ProjectsUtil.userIsAuthor(projectId, userEmail) && !database.versionIsPublic(projectId, versionId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+
+    if (!database.versionExistsOnProject(projectId, versionId)
+        && !versionId.equals(database.getLastCommitProject(projectId))) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"This project does not have a version with this id\"}").build();
+    }
+
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
     ProjectRepository project;
     try {
       project = new ProjectRepository(path);
+      project.changeVersion(versionId);
     } catch (IllegalStateException | GitAPIException | IOException e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting files\"}").build();
     }
 
-    try {
-      project.changeVersion(versionId);
-    } catch (GitAPIException e) {
-      e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"Error while getting files\"}").build();
-    }
     FileList files;
     try {
       files = ProjectsUtil.getFilesFromFolder(projectId, folderName, ProjectsUtil.userIsAuthor(projectId, userEmail));
@@ -479,13 +486,19 @@ public class ProjectController {
           .entity("{\"message\":\"Error while getting files\"}").build();
     }
 
-    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(files)).build();
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(files))
+        .build();
   }
 
-  public static Response getFile(String token, Long projectId, String folderName, String filename) {
+  public static Response getFileFromVersion(String token, Long projectId, String folderName, String filename,
+      String versionId) {
+
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();
     String userEmail;
+
     try {
       userEmail = jwtManager.getUserEmailFromJwt(token);
     } catch (Exception e) {
@@ -494,9 +507,9 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!FileUtil.fileExists(projectId, folderName, filename)) {
-      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}")
-          .type(MediaType.APPLICATION_JSON).build();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any project with this id\"}").build();
     }
 
     if (!ProjectsUtil.userCanAccessProject(projectId, userEmail)) {
@@ -505,34 +518,17 @@ public class ProjectController {
           .build();
     }
 
-    try {
-      if (!FileUtil.userCanAccessFile(projectId, folderName, filename, userEmail)) {
-        return Response.status(Response.Status.BAD_REQUEST)
-            .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
-            .build();
-      }
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity("{\"message\":\"Error while getting file\"}").type(MediaType.APPLICATION_JSON).build();
+    if (!database.versionExistsOnProject(projectId, versionId)
+        && !versionId.equals(database.getLastCommitProject(projectId))) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"This project does not have a version with this id\"}").build();
     }
 
-    FileData metadataFile;
-    try {
-      metadataFile = FileUtil.getMetadataFile(projectId, folderName, filename);
-    } catch (Exception e) {
-      e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting file \"}")
-          .type(MediaType.APPLICATION_JSON).build();
+    if (!database.versionIsPublic(projectId, versionId) && !ProjectsUtil.userIsAuthor(projectId, userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You do not have permission to access this version\"}").build();
     }
 
-    return Response.status(Response.Status.OK).entity(jsonManager.toJson(metadataFile)).type(MediaType.APPLICATION_JSON)
-        .build();
-  }
-
-  public static Response getFileFromVersion(String token, Long projectId, String folderName, String filename,
-      String versionId) {
-    DBManager database = new DBManager();
-    Dotenv environmentVariablesManager = Dotenv.load();
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
     ProjectRepository project = null;
 
@@ -545,17 +541,40 @@ public class ProjectController {
           .entity("{\"message\":\"Error while getting file\"}").build();
     }
 
-    Response fileResponse = getFile(token, projectId, folderName, filename);
+    if (!FileUtils.fileExists(projectId, folderName, filename)) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    try {
+      if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
+            .build();
+      }
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while getting file\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    FileData metadataFile;
+    try {
+      metadataFile = FileUtils.getMetadataFile(projectId, folderName, filename);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting file \"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
 
     String lastVersionId = database.getLastCommitProject(projectId);
-
     try {
       project.changeVersion(lastVersionId);
     } catch (GitAPIException e) {
       e.printStackTrace();
     }
 
-    return fileResponse;
+    return Response.status(Response.Status.OK).entity(jsonManager.toJson(metadataFile)).type(MediaType.APPLICATION_JSON)
+        .build();
   }
 
   public static Response updateFile(String token, final Long projectId, final String folderName, final String filename,
@@ -580,7 +599,7 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!FileUtil.fileExists(projectId, folderName, filename)) {
+    if (!FileUtils.fileExists(projectId, folderName, filename)) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Current file does not exist\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
@@ -588,7 +607,7 @@ public class ProjectController {
     String lastProjectVersion = database.getLastCommitProject(projectId);
     FileData fileMetadata;
     try {
-      fileMetadata = FileUtil.getMetadataFile(projectId, folderName, filename);
+      fileMetadata = FileUtils.getMetadataFile(projectId, folderName, filename);
     } catch (Exception e3) {
       e3.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
@@ -625,7 +644,7 @@ public class ProjectController {
 
     if (uploadedInputStream != null && fileDetail != null) {
       if (!fileDetail.getFileName().equals(filename)) {
-        if (FileUtil.renameFile(projectId, folderName, filename, fileDetail.getFileName()) == -1) {
+        if (FileUtils.renameFile(projectId, folderName, filename, fileDetail.getFileName()) == -1) {
           try {
             projectRepository.changeVersion(lastProjectVersion);
           } catch (GitAPIException e) {
@@ -635,10 +654,10 @@ public class ProjectController {
               .entity("{\"message\":\"Error while updating file\"}").type(MediaType.APPLICATION_JSON).build();
         }
 
-        String oldMetadataFilename = "/metadata/" + FileUtil.getMetadataFilename(filename);
-        String newMetadataFilename = "/metadata/" + FileUtil.getMetadataFilename(fileDetail.getFileName());
+        String oldMetadataFilename = "/metadata/" + FileUtils.getMetadataFilename(filename);
+        String newMetadataFilename = "/metadata/" + FileUtils.getMetadataFilename(fileDetail.getFileName());
 
-        if (FileUtil.renameFile(projectId, folderName, oldMetadataFilename, newMetadataFilename) == -1) {
+        if (FileUtils.renameFile(projectId, folderName, oldMetadataFilename, newMetadataFilename) == -1) {
           try {
             projectRepository.changeVersion(lastProjectVersion);
           } catch (GitAPIException e) {
@@ -714,7 +733,7 @@ public class ProjectController {
     }
     try {
 
-      if (!FileUtil.userCanAccessFile(projectId, folderName, filename, userEmail)) {
+      if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
         return Response.status(Response.Status.BAD_REQUEST)
             .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
             .build();
@@ -813,4 +832,34 @@ public class ProjectController {
         .entity("{\"message\":\"Version created successfully\"}").build();
   }
 
+  public static Response getVersions(final String token, final Long projectId) {
+    JwtUtils jwtManager = new JwtUtils();
+    Gson jsonManager = new Gson();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error validating JWT\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if (!ProjectsUtil.userCanAccessProject(projectId, userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
+          .build();
+    }
+
+    VersionList versions;
+    try {
+      versions = VersionsUtils.getVersionsProject(projectId,ProjectsUtil.userIsAuthor(projectId,userEmail));
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while getting versions\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions)).build();
+  }
 }

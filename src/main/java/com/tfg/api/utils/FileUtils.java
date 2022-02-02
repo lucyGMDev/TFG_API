@@ -11,7 +11,7 @@ import com.tfg.api.data.FileData;
 
 import io.github.cdimascio.dotenv.Dotenv;
 
-public class FileUtil {
+public class FileUtils {
 
   public static FileData getMetadataFile(Long projectId, String directoryName, String filename) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();

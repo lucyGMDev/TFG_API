@@ -10,6 +10,8 @@ import java.sql.Statement;
 import com.tfg.api.data.Comment;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.User;
+import com.tfg.api.data.Version;
+import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
 
 import io.github.cdimascio.dotenv.Dotenv;
@@ -361,7 +363,6 @@ public class DBManager {
     return -1;
   }
 
-
   public String getShortUrlFile(final Long projectId, final String directoryName, final String fileName) {
     String query = "SELECT short_url FROM file WHERE project_id=? AND directory_name=? AND file_name=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -459,16 +460,16 @@ public class DBManager {
     return -1;
   }
 
-  public boolean commentExistsInProject(String commentId, Long projectId) {
-    String query = "SELECT * FROM comment WHERE comment_id = ? AND project_id = ?;";
+  public boolean versionExistsOnProject(final Long projectId, final String versionId) {
+    String query = "SELECT * FROM project_version WHERE project_id=? AND version_commit = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-          statement.setString(1, commentId);
-          statement.setLong(2, projectId);
-          ResultSet result = statement.executeQuery();
-          if(result.next()) {
-            return true;
-          }
+      statement.setLong(1, projectId);
+      statement.setString(2, versionId);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return true;
+      }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
@@ -477,22 +478,79 @@ public class DBManager {
     return false;
   }
 
-  public int addCommentToProject(Long projectId, String commentId, String commentText, String writterEmail, String responseCommentId){
+  public boolean versionIsPublic(final Long projectId, final String versionId) {
+    String query = "SELECT public FROM project_version WHERE project_id=? AND version_commit = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, versionId);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return result.getBoolean("public");
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false;
+  }
+
+  public VersionList getVersionsProject(final Long projectId) {
+    String query = "SELECT * FROM project_version WHERE project_id= ?";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+
+      statement.setLong(1, projectId);
+      ResultSet result = statement.executeQuery();
+      VersionList versions = new VersionList();
+      while (result.next()) {
+        versions.getVersionList().add(new Version(result.getLong("project_id"), result.getString("version_commit"),
+            result.getString("name"), result.getBoolean("public")));
+      }
+      if (versions.getVersionList().size() > 0)
+        return versions;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public boolean commentExistsInProject(String commentId, Long projectId) {
+    String query = "SELECT * FROM comment WHERE comment_id = ? AND project_id = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, commentId);
+      statement.setLong(2, projectId);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return true;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false;
+  }
+
+  public int addCommentToProject(Long projectId, String commentId, String commentText, String writterEmail,
+      String responseCommentId) {
     String query = "INSERT INTO comment (comment_id, writter_email, comment_text, response_comment_id, project_id, post_date) VALUES(?,?,?,?,?,CURRENT_DATE);";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query))
-    {
-      statement.setString(1,commentId);
-      statement.setString(2,writterEmail);
-      statement.setString(3,commentText);
-      statement.setString(4,responseCommentId);
-      statement.setLong(5,projectId);
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, commentId);
+      statement.setString(2, writterEmail);
+      statement.setString(3, commentText);
+      statement.setString(4, responseCommentId);
+      statement.setLong(5, projectId);
       int numRows = statement.executeUpdate();
-      if(numRows > 0)
-      {
+      if (numRows > 0) {
         return numRows;
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -500,17 +558,18 @@ public class DBManager {
     return -1;
   }
 
-  public Comment getCommentById(String commentId)
-  {
+  public Comment getCommentById(String commentId) {
     String query = "SELECT * FROM comment WHERE comment_id = ?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
-      statement.setString(1,commentId);
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, commentId);
       ResultSet result = statement.executeQuery();
-      if(result.next()){
-        return new Comment(result.getString("comment_id"),result.getString("writter_email"),result.getString("response_comment_id"),result.getLong("project_id"),result.getDate("post_date"),result.getString("comment_text"));
+      if (result.next()) {
+        return new Comment(result.getString("comment_id"), result.getString("writter_email"),
+            result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
+            result.getString("comment_text"));
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();

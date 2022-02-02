@@ -115,7 +115,7 @@ public class ProjectRepository {
 
   public String createMetadataFile(String metadata, String folderName, String filename)
       throws IOException, GitAPIException {
-    String metadataFilename = FileUtil.getMetadataFilename(filename);
+    String metadataFilename = FileUtils.getMetadataFilename(filename);
     String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + "/" + folderName + "/metadata";
     File metadataFolder = new File(path);
     if (!metadataFolder.exists())

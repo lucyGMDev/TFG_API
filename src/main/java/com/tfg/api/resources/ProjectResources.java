@@ -90,15 +90,6 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{fileName}")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response getFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName")String folderName, @PathParam("fileName") final String fileName)
-  {
-    String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.getFile(token,projectId,folderName,fileName);
-  }
-
-  @GET
   @Path("/{projectId}/{folderName}/{fileName}/{versionId}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileFromVersion(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName")String folderName, @PathParam("fileName") final String fileName,@PathParam("versionId") final String versionId)
@@ -134,6 +125,14 @@ public class ProjectResources {
     return ProjectController.getFolderLink(token, projectId);
   }
 
+  @GET
+  @Path("{projectId}/getVersions")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getVersions(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getVersions(token, projectId);
+  }
+
   @POST
   @Path("{projectId}/createVersion")
   @Produces(MediaType.APPLICATION_JSON)
@@ -142,6 +141,5 @@ public class ProjectResources {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.createVersion(token, projectId, name,isPublic);
   }  
-  
 
 }

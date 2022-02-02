@@ -11,19 +11,19 @@ public class ProjectsUtil {
   public static Boolean userIsAuthor(Long projectId, String userEmail) {
     DBManager dbManager = new DBManager();
     String projectOwner = dbManager.getProjectOwner(projectId);
-    Boolean canEdit = false;
+    Boolean isAuthor = false;
     if (!userEmail.equals(projectOwner)) {
       String[] projectCoauthors = dbManager.getProjectCoauthors(projectId);
       for (String coauthor : projectCoauthors) {
         if (coauthor.equals(userEmail)) {
-          canEdit = true;
+          isAuthor = true;
           break;
         }
       }
     } else {
-      canEdit = true;
+      isAuthor = true;
     }
-    return canEdit;
+    return isAuthor;
   }
 
   public static Boolean folderNameIsValid(String folderName) {
@@ -46,23 +46,21 @@ public class ProjectsUtil {
     return false;
   }
 
-
-  public static FileList getFilesFromFolder(Long projectId, String folderName, Boolean isAuthor) throws Exception{
+  public static FileList getFilesFromFolder(Long projectId, String folderName, Boolean isAuthor) throws Exception {
     Dotenv dotenv = Dotenv.load();
-    String folderPath = dotenv.get("PROJECTS_ROOT")+"/"+projectId+"/"+folderName;
+    String folderPath = dotenv.get("PROJECTS_ROOT") + "/" + projectId + "/" + folderName;
     File folder = new File(folderPath);
     File[] files = folder.listFiles();
     FileList fileList = new FileList();
-    for (File file : files)
-    {
-      FileData metadataFile = FileUtil.getMetadataFile(projectId, folderName, file.getName());
-      if(isAuthor || metadataFile.getIsPublic())
-      {
+    for (File file : files) {
+      if (file.isDirectory())
+        continue;
+      FileData metadataFile = FileUtils.getMetadataFile(projectId, folderName, file.getName());
+      if (isAuthor || metadataFile.getIsPublic()) {
         fileList.getFiles().add(metadataFile);
       }
     }
     return fileList;
   }
 
-  
 }
