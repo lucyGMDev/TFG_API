@@ -6,16 +6,23 @@ public class ProjectBody {
   private Boolean isPublic;
   private String owner;
   private String[] coauthors;
+  private String[] type;
   public ProjectBody() {
   }
 
-  public ProjectBody(String name, String description, Boolean isPublic, String owner, String[] coauthors) {
+  
+
+  public ProjectBody(String name, String description, Boolean isPublic, String owner, String[] coauthors,
+      String[] type) {
     this.name = name;
     this.description = description;
     this.isPublic = isPublic;
     this.owner = owner;
     this.coauthors = coauthors;
+    this.type = type;
   }
+
+
 
   public String getName() {
     return name;
@@ -57,5 +64,19 @@ public class ProjectBody {
   public void setCoauthors(String[] coauthors) {
     this.coauthors = coauthors;
   }
+
+
+
+  public String[] getType() {
+    return type;
+  }
+
+
+
+  public void setType(String[] type) {
+    this.type = type;
+  }
+
+  
 
 }

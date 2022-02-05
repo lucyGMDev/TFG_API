@@ -1,5 +1,7 @@
 package com.tfg.api.utils;
 
+
+import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -89,22 +91,26 @@ public class DBManager {
   }
 
   public Project createProject(ProjectBody projectBody) {
-    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,owner) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?);";
+    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,owner,type) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, projectBody.getName());
       statement.setString(2, projectBody.getDescription());
       statement.setBoolean(3, projectBody.getIsPublic());
       statement.setString(4, projectBody.getOwner());
+      Array typeArray = conn.createArrayOf("text", projectBody.getType());
+      statement.setArray(5, typeArray);
       int rowsInserted = statement.executeUpdate();
       if (rowsInserted == 0) {
         return null;
       }
       ResultSet result = statement.getGeneratedKeys();
       if (result.next()) {
+        typeArray = result.getArray("type");
+        String[] type = (String[])typeArray.getArray();
         Project project = new Project(result.getLong("project_id"), result.getString("name"),
             result.getString("description"), result.getDate("created_date"), result.getDate("last_update_date"),
-            result.getString("last_commit_id"), result.getBoolean("public"), result.getString("owner"), null);
+            result.getString("last_commit_id"), result.getBoolean("public"), result.getString("owner"), null,type);
         return project;
       }
     } catch (SQLException e) {
@@ -218,9 +224,11 @@ public class DBManager {
       statement.setLong(1, projectId);
       ResultSet result = statement.executeQuery();
       if (result.next()) {
+        Array typeArray = result.getArray("type");
+        String[] type = typeArray == null ? null : (String[])typeArray.getArray();
         return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
             result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-            result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId));
+            result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId),type);
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -231,20 +239,25 @@ public class DBManager {
   }
 
   public Project updateProject(Long projectId, Project project) {
-    String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=? WHERE project_id=?;";
+    String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=?,type=? WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, project.getName());
       statement.setString(2, project.getDescription());
       statement.setBoolean(3, project.getIsPublic());
-      statement.setLong(4, projectId);
+      Array typeArray = conn.createArrayOf("text", project.getType());
+      statement.setArray(4,typeArray);
+      statement.setLong(5, projectId);
+      
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
         if (result.next()) {
+          typeArray = result.getArray("type");
+          String[] type = typeArray == null ? null :(String[])typeArray.getArray();
           return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
               result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-              result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId));
+              result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId),type);
         }
       }
 
@@ -579,12 +592,38 @@ public class DBManager {
   }
 
   public ListComments getComments(final Long projectId, final Long offset, final Long numberCommentsGet) {
-    String query = "SELECT * FROM comment WHERE project_id = ? ORDER BY post_date DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT * FROM comment WHERE project_id = ? AND response_comment_id IS NULL ORDER BY post_date DESC LIMIT ? OFFSET ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
       statement.setLong(2, numberCommentsGet);
       statement.setLong(3, offset);
+      ResultSet result = statement.executeQuery();
+      ListComments comments = new ListComments();
+      while (result.next()) {
+        comments.getComments()
+            .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
+                result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
+                result.getString("comment_text")));
+      }
+      return comments;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+
+  public ListComments getCommentResponses(final Long projectId, final String commentId, final Long offset, final Long numberCommentsGet) {
+    String query = "SELECT * FROM comment WHERE project_id = ? AND response_comment_id = ? ORDER BY post_date ASC LIMIT ? OFFSET ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, commentId);
+      statement.setLong(3, numberCommentsGet);
+      statement.setLong(4, offset);
       ResultSet result = statement.executeQuery();
       ListComments comments = new ListComments();
       while (result.next()) {
@@ -620,5 +659,6 @@ public class DBManager {
 
     return -1;
   }
+
 
 }

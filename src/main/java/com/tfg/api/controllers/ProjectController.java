@@ -41,18 +41,27 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
     if (!ProjectsUtil.userCanAccessProject(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"User can not access this project\"}").build();
     }
 
     Project userProject = database.getProjectById(projectId);
+    if (userProject == null) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting project\"}").build();
+    }
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(userProject))
         .build();
   }
 
-  public static Response CreateProject(final ProjectBody project, final String token) {
+  public static Response createProject(final ProjectBody project, final String token) {
     Gson jsonManager = new Gson();
     Dotenv environmentVariablesManager = Dotenv.load();
     JwtUtils jwtManager = new JwtUtils();
@@ -85,6 +94,16 @@ public class ProjectController {
     }
     if (project.getIsPublic() == null) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Project privacity is required\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if(project.getType() == null){
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Project type is required\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if(!ProjectsUtil.typesAreValid(project.getType())){
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"There are any type invalid for project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
@@ -183,9 +202,13 @@ public class ProjectController {
     if (projectBody.getIsPublic() != null) {
       project.setIsPublic(projectBody.getIsPublic());
     }
+    if(projectBody.getType()!=null){
+      project.setType(projectBody.getType());
+    }
+
     Project projectUpdated = null;
 
-    if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null) {
+    if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null || projectBody.getType()!=null) {
       projectUpdated = database.updateProject(projectId, project);
     } else {
       projectUpdated = project;
@@ -466,8 +489,7 @@ public class ProjectController {
           .entity("{\"message\":\"This project does not have a version with this id\"}").build();
     }
 
-    if(!ProjectsUtil.folderNameIsValid(folderName))
-    {
+    if (!ProjectsUtil.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
@@ -535,8 +557,7 @@ public class ProjectController {
           .entity("{\"message\":\"You do not have permission to access this version\"}").build();
     }
 
-    if(!ProjectsUtil.folderNameIsValid(folderName))
-    {
+    if (!ProjectsUtil.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
@@ -835,8 +856,7 @@ public class ProjectController {
           .entity("{\"message\":\"You can not create a version on an empty project\"}").build();
     }
 
-    if(database.versionExistsOnProject(projectId, commitId))
-    {
+    if (database.versionExistsOnProject(projectId, commitId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have a version on this state of the project\"}").build();
     }
@@ -870,14 +890,15 @@ public class ProjectController {
 
     VersionList versions;
     try {
-      versions = VersionsUtils.getVersionsProject(projectId,ProjectsUtil.userIsAuthor(projectId,userEmail));
+      versions = VersionsUtils.getVersionsProject(projectId, ProjectsUtil.userIsAuthor(projectId, userEmail));
     } catch (Exception e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while getting versions\"}")
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while getting versions\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-
-    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions)).build();
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions))
+        .build();
   }
 }

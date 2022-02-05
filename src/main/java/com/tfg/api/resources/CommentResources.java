@@ -19,14 +19,19 @@ public class CommentResources {
   
   @GET
   @Path("/{projectId}/getComments/{offset}/{numberCommentsLoad}")
-  @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
   public Response getComments(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("offset") final Long offset, @PathParam("numberCommentsLoad") final Long numberCommentsLoad)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return CommentController.getComments(token, projectId, offset,numberCommentsLoad);
   }
-
+  @GET
+  @Path("/{projectId}/{commentId}/getResponses/{offset}/{numberCommentsLoad}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getCommentResponses(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("commentId") final String commentId, @PathParam("offset") final Long offset, @PathParam("numberCommentsLoad") final Long numberCommentsLoad){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return CommentController.getCommentResponses(token, projectId, commentId, offset, numberCommentsLoad);
+  }
 
   @POST
   @Path("/postComment")

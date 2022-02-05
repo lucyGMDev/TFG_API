@@ -37,6 +37,24 @@ public class ProjectsUtil {
     return false;
   }
 
+  public static Boolean typesAreValid(String[] types) {
+    Dotenv dotenv = Dotenv.load();
+    String[] validTypes = dotenv.get("PROJECT_TYPES").split(",");
+    for (String type : types) {
+      Boolean valid = false;
+      for (String validType : validTypes) {
+        if (type.equals(validType)) {
+          valid = true;
+          break;
+        }
+      }
+      if (!valid)
+        return false;
+    }
+
+    return true;
+  }
+
   public static Boolean userCanAccessProject(Long projectId, String userEmail) {
     DBManager dbManager = new DBManager();
     if (dbManager.projectIsPublic(projectId))

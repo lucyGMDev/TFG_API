@@ -54,8 +54,41 @@ public class CommentController {
         .build();
   }
 
+  public static Response getCommentResponses(String token, final Long projectId, final String commentId, final Long offset, final Long numberCommentsLoad)
+  {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    }catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if(!database.projectExitsById(projectId)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"There are not any project with this ID\"}").build();
+    }
+
+    if(!database.commentExistsInProject(commentId, projectId)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"There are any comment on this project with this ID\"}").build();
+    }
+
+    if(!ProjectsUtil.userCanAccessProject(projectId, userEmail))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"You can not access this project\"}").build();
+    }
+
+    ListComments comments = database.getCommentResponses(projectId, commentId, offset, numberCommentsLoad);
+    if(comments==null)
+    {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error while getting comments\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(comments)).build();
+  }
   public static Response postComment(final String token, final CommentBody comment) {
-    //TODO: Solo recuperar comentarios que no sean respuestas
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();

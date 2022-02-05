@@ -38,7 +38,7 @@ public class ProjectResources {
   public Response createProject(@HeaderParam("Authorization") final String authorizationHeader,final ProjectBody project)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.CreateProject(project, token);
+    return ProjectController.createProject(project, token);
   }
 
   @PUT
@@ -96,6 +96,14 @@ public class ProjectResources {
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFileFromVersion(token,projectId,folderName,fileName,versionId);
+  }
+
+  @GET
+  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/downloadFile")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName, @PathParam("fileName") final String fileName, @PathParam("versionId") final String versionId){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return null;
   }
 
   @PUT
