@@ -5,17 +5,18 @@ import java.util.Date;
 public class Comment {
   String commentId;
   String writterEmail;
-  String responseCommitId;
+  String responseCommentId;
   Long projectId;
   Date postDate;
   String commentText;
   public Comment() {
   }
-  public Comment(String commentId, String writterEmail, String responseCommitId, Long projectId, Date postDate,
+  
+  public Comment(String commentId, String writterEmail, String responseCommentId, Long projectId, Date postDate,
       String commentText) {
     this.commentId = commentId;
     this.writterEmail = writterEmail;
-    this.responseCommitId = responseCommitId;
+    this.responseCommentId = responseCommentId;
     this.projectId = projectId;
     this.postDate = postDate;
     this.commentText = commentText;
@@ -32,11 +33,11 @@ public class Comment {
   public void setWritterEmail(String writterEmail) {
     this.writterEmail = writterEmail;
   }
-  public String getResponseCommitId() {
-    return responseCommitId;
+  public String getResponseCommentId() {
+    return responseCommentId;
   }
-  public void setResponseCommitId(String responseCommitId) {
-    this.responseCommitId = responseCommitId;
+  public void setResponseCommentId(String responseCommentId) {
+    this.responseCommentId = responseCommentId;
   }
   public Long getProjectId() {
     return projectId;
@@ -56,7 +57,7 @@ public class Comment {
   public void setCommentText(String commentText) {
     this.commentText = commentText;
   }
-
+  
   
 
 }

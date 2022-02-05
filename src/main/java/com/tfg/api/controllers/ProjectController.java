@@ -466,6 +466,12 @@ public class ProjectController {
           .entity("{\"message\":\"This project does not have a version with this id\"}").build();
     }
 
+    if(!ProjectsUtil.folderNameIsValid(folderName))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
+    }
+
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
     ProjectRepository project;
     try {
@@ -527,6 +533,12 @@ public class ProjectController {
     if (!database.versionIsPublic(projectId, versionId) && !ProjectsUtil.userIsAuthor(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You do not have permission to access this version\"}").build();
+    }
+
+    if(!ProjectsUtil.folderNameIsValid(folderName))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
 
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
@@ -819,8 +831,14 @@ public class ProjectController {
     String commitId = database.getLastCommitProject(projectId);
 
     if (commitId == null) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"Error while creating a version of this project\"}").build();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You can not create a version on an empty project\"}").build();
+    }
+
+    if(database.versionExistsOnProject(projectId, commitId))
+    {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have a version on this state of the project\"}").build();
     }
 
     if (database.createVersion(projectId, commitId, name, isPublic) == -1) {

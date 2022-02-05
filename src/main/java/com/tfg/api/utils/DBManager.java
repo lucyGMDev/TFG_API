@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 import com.tfg.api.data.Comment;
+import com.tfg.api.data.ListComments;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.User;
 import com.tfg.api.data.Version;
@@ -508,7 +509,7 @@ public class DBManager {
         versions.getVersionList().add(new Version(result.getLong("project_id"), result.getString("version_commit"),
             result.getString("name"), result.getBoolean("public")));
       }
-      if (versions.getVersionList().size() > 0)
+      if (versions.getVersionList().size() >= 0)
         return versions;
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -576,4 +577,48 @@ public class DBManager {
     }
     return null;
   }
+
+  public ListComments getComments(final Long projectId, final Long offset, final Long numberCommentsGet) {
+    String query = "SELECT * FROM comment WHERE project_id = ? ORDER BY post_date DESC LIMIT ? OFFSET ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setLong(2, numberCommentsGet);
+      statement.setLong(3, offset);
+      ResultSet result = statement.executeQuery();
+      ListComments comments = new ListComments();
+      while (result.next()) {
+        comments.getComments()
+            .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
+                result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
+                result.getString("comment_text")));
+      }
+      return comments;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public int deleteComment(final Long projectId, final String commentId) {
+    String query = "DELETE FROM comment WHERE project_id=? AND comment_id=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, commentId);
+      int numRows = statement.executeUpdate();
+      if(numRows > 0){
+        return numRows;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return -1;
+  }
+
 }
