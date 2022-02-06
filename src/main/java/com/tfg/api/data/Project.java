@@ -10,7 +10,6 @@ public class Project {
   private Date lastUpdateName;
   private String lastCommitId;
   private Boolean isPublic;
-  private String owner;
   private String[] coauthors = null;
   private String[] type;
 
@@ -18,7 +17,7 @@ public class Project {
   }
 
   public Project(Long project_id, String name, String description, Date createdDate, Date lastUpdateName,
-      String lastCommitId, Boolean isPublic, String owner, String[] coauthors, String[] type) {
+      String lastCommitId, Boolean isPublic, String[] coauthors, String[] type) {
     this.project_id = project_id;
     this.name = name;
     this.description = description;
@@ -26,7 +25,6 @@ public class Project {
     this.lastUpdateName = lastUpdateName;
     this.lastCommitId = lastCommitId;
     this.isPublic = isPublic;
-    this.owner = owner;
     this.coauthors = coauthors;
     this.type = type;
   }
@@ -87,14 +85,6 @@ public class Project {
 
   public void setIsPublic(Boolean isPublic) {
     this.isPublic = isPublic;
-  }
-
-  public String getOwner() {
-    return owner;
-  }
-
-  public void setOwner(String owner) {
-    this.owner = owner;
   }
 
   public String[] getCoauthors() {

@@ -1,6 +1,5 @@
 package com.tfg.api.utils;
 
-
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -12,6 +11,7 @@ import java.sql.Statement;
 import com.tfg.api.data.Comment;
 import com.tfg.api.data.ListComments;
 import com.tfg.api.data.Project;
+import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.User;
 import com.tfg.api.data.Version;
 import com.tfg.api.data.VersionList;
@@ -91,15 +91,14 @@ public class DBManager {
   }
 
   public Project createProject(ProjectBody projectBody) {
-    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,owner,type) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?,?);";
+    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,type) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, projectBody.getName());
       statement.setString(2, projectBody.getDescription());
       statement.setBoolean(3, projectBody.getIsPublic());
-      statement.setString(4, projectBody.getOwner());
       Array typeArray = conn.createArrayOf("text", projectBody.getType());
-      statement.setArray(5, typeArray);
+      statement.setArray(4, typeArray);
       int rowsInserted = statement.executeUpdate();
       if (rowsInserted == 0) {
         return null;
@@ -107,10 +106,10 @@ public class DBManager {
       ResultSet result = statement.getGeneratedKeys();
       if (result.next()) {
         typeArray = result.getArray("type");
-        String[] type = (String[])typeArray.getArray();
+        String[] type = (String[]) typeArray.getArray();
         Project project = new Project(result.getLong("project_id"), result.getString("name"),
             result.getString("description"), result.getDate("created_date"), result.getDate("last_update_date"),
-            result.getString("last_commit_id"), result.getBoolean("public"), result.getString("owner"), null,type);
+            result.getString("last_commit_id"), result.getBoolean("public"), null, type);
         return project;
       }
     } catch (SQLException e) {
@@ -154,23 +153,6 @@ public class DBManager {
       e.printStackTrace();
     }
     return -1;
-  }
-
-  public String getProjectOwner(Long projectId) {
-    String query = "SELECT owner FROM project WHERE project_id=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query);) {
-      statement.setLong(1, projectId);
-      ResultSet rs = statement.executeQuery();
-      if (rs.next()) {
-        return rs.getString(1);
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return null;
   }
 
   public String[] getProjectCoauthors(Long projectId) {
@@ -225,16 +207,45 @@ public class DBManager {
       ResultSet result = statement.executeQuery();
       if (result.next()) {
         Array typeArray = result.getArray("type");
-        String[] type = typeArray == null ? null : (String[])typeArray.getArray();
+        String[] type = typeArray == null ? null : (String[]) typeArray.getArray();
         return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
             result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-            result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId),type);
+            result.getBoolean("public"), getProjectCoauthors(projectId), type);
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
     }
+    return null;
+  }
+
+  public ProjectList getProjects(final String userEmail, final Long numberCommentsGet, final Long offset) {
+    String query = "SELECT p.* FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id WHERE p.public = true OR cp.coauthor_email= ? ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userEmail);
+      statement.setLong(2, numberCommentsGet);
+      statement.setLong(3, offset);
+      ResultSet result = statement.executeQuery();
+      ProjectList projects = new ProjectList();
+      while (result.next()) {
+        String[] coauthors = getProjectCoauthors(result.getLong(1));
+        Array typesArray = result.getArray("type");
+        String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
+        projects.getProjectList()
+            .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
+                result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+                result.getBoolean("public"), coauthors, types));
+      }
+      return projects;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
     return null;
   }
 
@@ -246,18 +257,18 @@ public class DBManager {
       statement.setString(2, project.getDescription());
       statement.setBoolean(3, project.getIsPublic());
       Array typeArray = conn.createArrayOf("text", project.getType());
-      statement.setArray(4,typeArray);
+      statement.setArray(4, typeArray);
       statement.setLong(5, projectId);
-      
+
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
         if (result.next()) {
           typeArray = result.getArray("type");
-          String[] type = typeArray == null ? null :(String[])typeArray.getArray();
+          String[] type = typeArray == null ? null : (String[]) typeArray.getArray();
           return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
               result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-              result.getBoolean("public"), result.getString("owner"), getProjectCoauthors(projectId),type);
+              result.getBoolean("public"), getProjectCoauthors(projectId), type);
         }
       }
 
@@ -615,8 +626,8 @@ public class DBManager {
     return null;
   }
 
-
-  public ListComments getCommentResponses(final Long projectId, final String commentId, final Long offset, final Long numberCommentsGet) {
+  public ListComments getCommentResponses(final Long projectId, final String commentId, final Long offset,
+      final Long numberCommentsGet) {
     String query = "SELECT * FROM comment WHERE project_id = ? AND response_comment_id = ? ORDER BY post_date ASC LIMIT ? OFFSET ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
@@ -648,7 +659,7 @@ public class DBManager {
       statement.setLong(1, projectId);
       statement.setString(2, commentId);
       int numRows = statement.executeUpdate();
-      if(numRows > 0){
+      if (numRows > 0) {
         return numRows;
       }
     } catch (SQLException e) {
@@ -659,6 +670,5 @@ public class DBManager {
 
     return -1;
   }
-
 
 }

@@ -10,20 +10,14 @@ import io.github.cdimascio.dotenv.Dotenv;
 public class ProjectsUtil {
   public static Boolean userIsAuthor(Long projectId, String userEmail) {
     DBManager dbManager = new DBManager();
-    String projectOwner = dbManager.getProjectOwner(projectId);
-    Boolean isAuthor = false;
-    if (!userEmail.equals(projectOwner)) {
-      String[] projectCoauthors = dbManager.getProjectCoauthors(projectId);
-      for (String coauthor : projectCoauthors) {
-        if (coauthor.equals(userEmail)) {
-          isAuthor = true;
-          break;
-        }
+    String[] projectCoauthors = dbManager.getProjectCoauthors(projectId);
+    for (String coauthor : projectCoauthors) {
+      if (coauthor.equals(userEmail)) {
+        return true;
       }
-    } else {
-      isAuthor = true;
     }
-    return isAuthor;
+    return false;
+
   }
 
   public static Boolean folderNameIsValid(String folderName) {

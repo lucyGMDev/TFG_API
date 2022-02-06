@@ -32,6 +32,14 @@ public class ProjectResources {
     return ProjectController.getProject(token, projectId);
   }
 
+  @GET
+  @Path("/getProjects/{offset}/{numberProjectsLoad}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getProjects(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("offset") final Long offset, @PathParam("numberProjectsLoad") final Long numberProjectsLoad){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getProjects(token, numberProjectsLoad, offset);
+  }
+
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -99,11 +107,11 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/downloadFile")
-  @Produces(MediaType.APPLICATION_JSON)
-  public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName, @PathParam("fileName") final String fileName, @PathParam("versionId") final String versionId){
+  @Path("/{projectId}/{folderName}/{filename}/{versionId}/downloadFile")
+  @Produces(MediaType.MULTIPART_FORM_DATA)
+  public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName, @PathParam("filename") final String filename, @PathParam("versionId") final String versionId){
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return null;
+    return ProjectController.downloadFileFromVersion(token, projectId, folderName, filename, versionId);
   }
 
   @PUT

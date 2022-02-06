@@ -13,6 +13,7 @@ import com.google.gson.Gson;
 import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
 import com.tfg.api.data.Project;
+import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
@@ -61,6 +62,26 @@ public class ProjectController {
         .build();
   }
 
+  public static Response getProjects(String token, final Long numberCommentsGet, final Long offset){
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try{
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    }catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    ProjectList projects = database.getProjects(userEmail, numberCommentsGet, offset);
+    if(projects == null)
+    {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error while getting\"}").build();
+    }
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects)).build();
+  }
+
   public static Response createProject(final ProjectBody project, final String token) {
     Gson jsonManager = new Gson();
     Dotenv environmentVariablesManager = Dotenv.load();
@@ -97,13 +118,14 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if(project.getType() == null){
+    if (project.getType() == null) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Project type is required\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if(!ProjectsUtil.typesAreValid(project.getType())){
-      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"There are any type invalid for project\"}")
+    if (!ProjectsUtil.typesAreValid(project.getType())) {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"There are any type invalid for project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
@@ -202,13 +224,14 @@ public class ProjectController {
     if (projectBody.getIsPublic() != null) {
       project.setIsPublic(projectBody.getIsPublic());
     }
-    if(projectBody.getType()!=null){
+    if (projectBody.getType() != null) {
       project.setType(projectBody.getType());
     }
 
     Project projectUpdated = null;
 
-    if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null || projectBody.getType()!=null) {
+    if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null
+        || projectBody.getType() != null) {
       projectUpdated = database.updateProject(projectId, project);
     } else {
       projectUpdated = project;
@@ -608,6 +631,73 @@ public class ProjectController {
 
     return Response.status(Response.Status.OK).entity(jsonManager.toJson(metadataFile)).type(MediaType.APPLICATION_JSON)
         .build();
+  }
+
+  public static Response downloadFileFromVersion(final String token, final Long projectId, final String folderName,
+      final String filename, final String versionId) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if(!ProjectsUtil.userCanAccessProject(projectId, userEmail)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+    
+    if(!ProjectsUtil.folderNameIsValid(folderName)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"The folder name is not valid\"}").build();
+    }
+
+    if(!database.versionExistsOnProject(projectId, versionId)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this id on this project\"}").build();
+    }
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    ProjectRepository project;
+    try {
+      project = new ProjectRepository(projectPath);
+      project.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error whule getting file\"}").build();
+    }
+
+    if(!FileUtils.fileExists(projectId, folderName, filename)){
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any file with this name on this project and this folder\"}").build();
+    }
+
+    try {
+      if(!FileUtils.userCanAccessFile(projectId, folderName, filename , userEmail)){
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    String filePath = projectPath +"/"+folderName+"/"+filename;
+    File file = new File(filePath);
+
+    return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object)file).header("Content-Disposition", "attachment; filename="+file.getName()).build();
   }
 
   public static Response updateFile(String token, final Long projectId, final String folderName, final String filename,
