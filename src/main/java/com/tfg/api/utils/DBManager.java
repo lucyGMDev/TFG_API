@@ -543,6 +543,26 @@ public class DBManager {
     return null;
   }
 
+  public int updateVersionId(final Long projectId, final String oldVersion, final String newVersion){
+    String query = "UPDATE project_version SET version_commit = ? WHERE project_id = ? AND version_commit = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setString(1, newVersion);
+      statement.setLong(2, projectId);
+      statement.setString(3, oldVersion);
+      int numRows = statement.executeUpdate();
+      if(numRows >= 0){
+        return numRows;
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
   public boolean commentExistsInProject(String commentId, Long projectId) {
     String query = "SELECT * FROM comment WHERE comment_id = ? AND project_id = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);

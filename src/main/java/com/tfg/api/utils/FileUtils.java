@@ -75,13 +75,6 @@ public class FileUtils {
   }
 
   public static String getMetadataFilename(String originalFilename) {
-    // String originalFilenameWithoutExtension =
-    // originalFilename.replaceFirst("[.][^.]+$", "");
-    // originalFilenameWithoutExtension =
-    // originalFilenameWithoutExtension.equals("") ? originalFilename :
-    // originalFilenameWithoutExtension;
-    // String metadataFilename = originalFilenameWithoutExtension + ".json";
-    // return metadataFilename;
     return originalFilename + ".json";
   }
 

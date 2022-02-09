@@ -124,6 +124,15 @@ public class ProjectResources {
   }
 
   @POST
+  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/rateFile/{score}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response rateProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName, @PathParam("fileName") final String fileName, @PathParam("versionId")final String versionId,@PathParam("score") final Integer score)
+  {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.rateFile(token, projectId, folderName, fileName, versionId,score);
+  }
+
+  @POST
   @Path("/{projectId}/{folderName}/{fileName}/getlink")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileLink(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId")final Long projectId, @PathParam("folderName")final String folderName, @PathParam("fileName") final String fileName)
