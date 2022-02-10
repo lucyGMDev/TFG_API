@@ -249,6 +249,38 @@ public class DBManager {
     return null;
   }
 
+  public ProjectList searchProject(final String userEmail, final Long numberCommentsGet, final Long offset,
+      final String query) {
+    String sql = "SELECT p.* FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id WHERE p.public = true OR cp.coauthor_email= ? AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_email) LIKE ?) ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(sql)) {
+      statement.setString(1, userEmail);
+      statement.setString(2, "%" + query.toLowerCase() + "%");
+      statement.setString(3, "%" + query.toLowerCase() + "%");
+      statement.setLong(4, numberCommentsGet);
+      statement.setLong(5, offset);
+      ResultSet result = statement.executeQuery();
+      ProjectList projects = new ProjectList();
+      while (result.next()) {
+        String[] coauthors = getProjectCoauthors(result.getLong(1));
+        Array typesArray = result.getArray("type");
+        String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
+        projects.getProjectList()
+            .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
+                result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+                result.getBoolean("public"), coauthors, types));
+      }
+      return projects;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
+  }
+
   public Project updateProject(Long projectId, Project project) {
     String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=?,type=? WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -543,19 +575,18 @@ public class DBManager {
     return null;
   }
 
-  public int updateVersionId(final Long projectId, final String oldVersion, final String newVersion){
+  public int updateVersionId(final Long projectId, final String oldVersion, final String newVersion) {
     String query = "UPDATE project_version SET version_commit = ? WHERE project_id = ? AND version_commit = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, newVersion);
       statement.setLong(2, projectId);
       statement.setString(3, oldVersion);
       int numRows = statement.executeUpdate();
-      if(numRows >= 0){
+      if (numRows >= 0) {
         return numRows;
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();

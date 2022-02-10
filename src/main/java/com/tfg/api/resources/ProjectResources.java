@@ -10,6 +10,7 @@ import javax.ws.rs.PUT;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
@@ -33,12 +34,21 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/getProjects/{offset}/{numberProjectsLoad}")
+  @Path("/getProjects")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getProjects(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("offset") final Long offset, @PathParam("numberProjectsLoad") final Long numberProjectsLoad){
+  public Response getProjects(@HeaderParam("Authorization") final String authorizationHeader, @QueryParam("offset") final Long offset, @QueryParam("numberProjectsLoad") final Long numberProjectsLoad){
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getProjects(token, numberProjectsLoad, offset);
   }
+
+  @GET
+  @Path("/searchProjects")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response searchProjects(@HeaderParam("Authorization") final String authorizationHeader, @QueryParam("offset") final Long offset, @QueryParam("numberProjectsLoad")final Long numberProjectsLoad, @QueryParam("query") final String query){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.searchProjects(token, offset, numberProjectsLoad, query);
+  }
+
 
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
@@ -126,10 +136,18 @@ public class ProjectResources {
   @POST
   @Path("/{projectId}/{folderName}/{fileName}/{versionId}/rateFile/{score}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response rateProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName, @PathParam("fileName") final String fileName, @PathParam("versionId")final String versionId,@PathParam("score") final Integer score)
+  public Response rateFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName, @PathParam("fileName") final String fileName, @PathParam("versionId")final String versionId,@PathParam("score") final Integer score)
   {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.rateFile(token, projectId, folderName, fileName, versionId,score);
+  }
+
+  @GET
+  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/getRating")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getFileRatingUser(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId,@PathParam("folderName") final String folderName, @PathParam("fileName") final String filename, @PathParam("versionId") final String versionId){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getFileRatingUser(token, projectId, folderName, filename, versionId);
   }
 
   @POST
