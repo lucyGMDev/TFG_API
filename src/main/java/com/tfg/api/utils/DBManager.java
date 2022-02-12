@@ -108,7 +108,7 @@ public class DBManager {
         String[] type = (String[]) typeArray.getArray();
         Project project = new Project(result.getLong("project_id"), result.getString("name"),
             result.getString("description"), result.getDate("created_date"), result.getDate("last_update_date"),
-            result.getString("last_commit_id"), result.getBoolean("public"), null, type,null);
+            result.getString("last_commit_id"), result.getBoolean("public"), null, type, null);
         return project;
       }
     } catch (SQLException e) {
@@ -209,7 +209,7 @@ public class DBManager {
         String[] type = typeArray == null ? null : (String[]) typeArray.getArray();
         return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
             result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-            result.getBoolean("public"), getProjectCoauthors(projectId), type,result.getFloat("score"));
+            result.getBoolean("public"), getProjectCoauthors(projectId), type, result.getFloat("score"));
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -239,7 +239,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types,result.getFloat("score")));
+                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -306,7 +306,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types,result.getFloat("score")));
+                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -318,7 +318,8 @@ public class DBManager {
     return null;
   }
 
-  public ProjectList searchProjectByTypesOrderByRate(final String userEmail, final Long numberCommentsGet, final Long offset,
+  public ProjectList searchProjectByTypesOrderByRate(final String userEmail, final Long numberCommentsGet,
+      final Long offset,
       final String query, final String[] projectTypes) {
     String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_email) LIKE ?) AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
 
@@ -373,7 +374,7 @@ public class DBManager {
           Float scoreProject = this.getScoreFromProject(result.getLong("project_id"));
           return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
               result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-              result.getBoolean("public"), getProjectCoauthors(projectId), type,scoreProject);
+              result.getBoolean("public"), getProjectCoauthors(projectId), type, scoreProject);
         }
       }
 
@@ -383,6 +384,63 @@ public class DBManager {
       e.printStackTrace();
     }
     return null;
+  }
+
+  public Boolean userHasRateProject(Long projectId, String userEmail) {
+    String query = "SELECT * FROM score_project WHERE project_id = ? AND user_email = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, userEmail);
+      ResultSet result = statement.executeQuery();
+      if(result.next()){
+        return true;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return false;
+  }
+
+  public int rateProject(final Long projectId, final String userEmail, final Float score) {
+    String query = "INSERT INTO score_project (user_email, project_id,score) VALUES (?,?,?);";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userEmail);
+      statement.setLong(2, projectId);
+      statement.setFloat(3, score);
+      int numRows = statement.executeUpdate();
+      if (numRows >= 0) {
+        return numRows;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return -1;
+  }
+
+  public int updateRateProject(final Long projectId, final String userEmail, final Float score){
+    String query = "UPDATE score_project SET score = ? WHERE project_id = ? AND user_email =?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setFloat(1, score);
+      statement.setLong(2, projectId);
+      statement.setString(3, userEmail);
+      int numRows = statement.executeUpdate();
+      if(numRows>=0){
+        return numRows;
+      }
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
   }
 
   public int removeProject(Long projectId) {
@@ -437,17 +495,16 @@ public class DBManager {
     return null;
   }
 
-  public Float getScoreFromProject(Long projectId){
+  public Float getScoreFromProject(Long projectId) {
     String query = "SELECT AVG(score) AS \"score\" FROM project WHERE project_id = ? GROUP BY project_id;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
-      statement.setLong(1,projectId);
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
       ResultSet result = statement.executeQuery();
-      if(result.next()){
+      if (result.next()) {
         return result.getFloat("score");
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();

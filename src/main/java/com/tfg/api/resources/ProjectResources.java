@@ -200,4 +200,12 @@ public class ProjectResources {
     return ProjectController.createVersion(token, projectId, name, isPublic);
   }
 
+  @POST
+  @Path("{projectId}/rateProject")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response rateProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @QueryParam("score") final Float score){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.rateProject(token, projectId,score);
+  }
+
 }

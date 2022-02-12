@@ -99,7 +99,8 @@ public class ProjectController {
           break;
         case RATING:
           projects = projectTypesFilter != null
-              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
+              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, query,
+                  projectTypesFilter)
               : database.searchProjectOrderByRate(userEmail, numberCommentsGet, offset, query);
           break;
         default:
@@ -1282,4 +1283,58 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions))
         .build();
   }
+
+  public static Response rateProject(final String token, final Long projectId, final Float score) {
+    DBManager database = new DBManager();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if (projectId == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Project id is required\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectsUtil.userCanAccessProject(projectId, userEmail) && !database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have no permissions to access this project\"}").build();
+    }
+
+    if (score == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Score is required\"}").build();
+    }
+
+    if (score < 0 || score > 5) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Score is invalid, must be between 0 and 5\"}").build();
+    }
+
+    if (!database.userHasRateProject(projectId, userEmail)) {
+      if (database.rateProject(projectId, userEmail, score) == -1) {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while rating project\"}").build();
+      }
+    } else {
+      if (database.updateRateProject(projectId, userEmail, score) == -1) {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while rating project\"}").build();
+      }
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity("{\"message\":\"Project rate successfully\"}").build();
+  }
+
 }
