@@ -13,6 +13,7 @@ import javax.ws.rs.core.Response;
 import com.google.gson.Gson;
 import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
+import com.tfg.api.data.OrderFilter;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.VersionList;
@@ -63,7 +64,8 @@ public class ProjectController {
         .build();
   }
 
-  public static Response getProjects(String token, final Long numberCommentsGet, final Long offset) {
+  public static Response searchProjects(final String token, final Long offset, final Long numberCommentsGet,
+      final String query, final String[] projectTypesFilter, final String orderFilter) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();
@@ -76,34 +78,34 @@ public class ProjectController {
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
-    ProjectList projects = database.getProjects(userEmail, numberCommentsGet, offset);
-    if (projects == null) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"Error while getting projects\"}").build();
-    }
-    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects))
-        .build();
-  }
-
-  public static Response searchProjects(final String token, final Long offset, final Long numberCommentsGet, final String query){
-    //TODO: No funciona
-    DBManager database = new DBManager();
-    Gson jsonManager = new Gson();
-    JwtUtils jwtManager = new JwtUtils();
-    String userEmail;
-    try {
-      userEmail = jwtManager.getUserEmailFromJwt(token);
-    } catch (Exception e) {
-      e.printStackTrace();
+    if (offset < 0 || numberCommentsGet < 0) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"Error with JWT\"}").build();
+          .entity("{\"message\":\"Offset and number of comments can not been negative\"}").build();
     }
 
-    ProjectList projects = database.searchProject(userEmail, numberCommentsGet, offset,query);
+    if (projectTypesFilter != null && !ProjectsUtil.projectTypesAreValid(projectTypesFilter)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"There are some project filter invalid\"}").build();
+    }
+    
+    //TODO: Make order filter
+    if (!orderFilter.equals("")) {
+      try {
+        OrderFilter order = OrderFilter.valueOf(orderFilter);
+      } catch (Exception e) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Order filter is invalid\"}").build();
+      }
+    }
+    ProjectList projects = projectTypesFilter != null
+        ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
+        : database.searchProject(userEmail, numberCommentsGet, offset, query);
+
     if (projects == null) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting projects\"}").build();
     }
+
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects))
         .build();
   }
@@ -1117,7 +1119,7 @@ public class ProjectController {
       e.printStackTrace();
     }
 
-    String responseJson = String.format("{\"score\":%d}",score);
+    String responseJson = String.format("{\"score\":%d}", score);
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(responseJson).build();
   }
 

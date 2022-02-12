@@ -1,5 +1,6 @@
 package com.tfg.api.data;
 
+import java.math.BigDecimal;
 import java.util.Date;
 
 public class Project {
@@ -12,12 +13,13 @@ public class Project {
   private Boolean isPublic;
   private String[] coauthors = null;
   private String[] type;
+  private Float avgScore;
 
   public Project() {
   }
 
   public Project(Long project_id, String name, String description, Date createdDate, Date lastUpdateName,
-      String lastCommitId, Boolean isPublic, String[] coauthors, String[] type) {
+      String lastCommitId, Boolean isPublic, String[] coauthors, String[] type, Float avgScore) {
     this.project_id = project_id;
     this.name = name;
     this.description = description;
@@ -27,6 +29,9 @@ public class Project {
     this.isPublic = isPublic;
     this.coauthors = coauthors;
     this.type = type;
+    if(avgScore!=null){
+      this.avgScore = BigDecimal.valueOf(avgScore).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue();
+    }
   }
 
 
@@ -101,6 +106,15 @@ public class Project {
 
   public void setType(String[] type) {
     this.type = type;
+  }
+
+  public Float getAvgScore() {
+    return avgScore;
+  }
+
+  public void setAvgScore(Float avgScore) {
+    avgScore = avgScore != null ? BigDecimal.valueOf(avgScore).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue() : null;
+    this.avgScore = avgScore;
   }
 
   

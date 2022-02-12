@@ -4,6 +4,7 @@ import java.io.File;
 
 import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
+import com.tfg.api.data.ProjectType;
 
 import io.github.cdimascio.dotenv.Dotenv;
 
@@ -73,6 +74,17 @@ public class ProjectsUtil {
       }
     }
     return fileList;
+  }
+
+  public static Boolean projectTypesAreValid(String[] projectTypes){
+    for (String projectType : projectTypes) {
+      try {
+        ProjectType.valueOf(projectType);
+      } catch (Exception e) {
+        return false;
+      }
+    }
+    return true;
   }
 
 }
