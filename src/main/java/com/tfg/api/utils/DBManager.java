@@ -286,6 +286,73 @@ public class DBManager {
     return null;
   }
 
+  public ProjectList searchProjectOrderByRate(final String userEmail, final Long numberCommentsGet, final Long offset,
+      final String query) {
+    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_email) LIKE ?) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(sql)) {
+      statement.setString(1, userEmail);
+      statement.setString(2, "%" + query.toLowerCase() + "%");
+      statement.setString(3, "%" + query.toLowerCase() + "%");
+      statement.setLong(4, numberCommentsGet);
+      statement.setLong(5, offset);
+      ResultSet result = statement.executeQuery();
+      ProjectList projects = new ProjectList();
+      while (result.next()) {
+        String[] coauthors = getProjectCoauthors(result.getLong(1));
+        Array typesArray = result.getArray("type");
+        String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
+        projects.getProjectList()
+            .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
+                result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+                result.getBoolean("public"), coauthors, types,result.getFloat("score")));
+      }
+      return projects;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
+  }
+
+  public ProjectList searchProjectByTypesOrderByRate(final String userEmail, final Long numberCommentsGet, final Long offset,
+      final String query, final String[] projectTypes) {
+    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_email) LIKE ?) AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(sql)) {
+      statement.setString(1, userEmail);
+      statement.setString(2, "%" + query.toLowerCase() + "%");
+      statement.setString(3, "%" + query.toLowerCase() + "%");
+      Array typesArray = conn.createArrayOf("text", projectTypes);
+      statement.setArray(4, typesArray);
+      statement.setLong(5, numberCommentsGet);
+      statement.setLong(6, offset);
+      ResultSet result = statement.executeQuery();
+      ProjectList projects = new ProjectList();
+      while (result.next()) {
+        String[] coauthors = getProjectCoauthors(result.getLong(1));
+        typesArray = result.getArray("type");
+        String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
+        Float score = result.getFloat("score");
+        projects.getProjectList()
+            .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
+                result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+                result.getBoolean("public"), coauthors, types, score));
+      }
+      return projects;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
+  }
+
   public Project updateProject(Long projectId, Project project) {
     String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=?,type=? WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);

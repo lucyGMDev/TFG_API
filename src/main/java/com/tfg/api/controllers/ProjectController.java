@@ -85,21 +85,32 @@ public class ProjectController {
 
     if (projectTypesFilter != null && !ProjectsUtil.projectTypesAreValid(projectTypesFilter)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-            .entity("{\"message\":\"There are some project filter invalid\"}").build();
+          .entity("{\"message\":\"There are some project filter invalid\"}").build();
     }
-    
-    //TODO: Make order filter
+
+    ProjectList projects;
     if (!orderFilter.equals("")) {
-      try {
-        OrderFilter order = OrderFilter.valueOf(orderFilter);
-      } catch (Exception e) {
-        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-            .entity("{\"message\":\"Order filter is invalid\"}").build();
+      OrderFilter order = OrderFilter.valueOf(orderFilter);
+      switch (order) {
+        case LAST_UPDATE:
+          projects = projectTypesFilter != null
+              ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
+              : database.searchProject(userEmail, numberCommentsGet, offset, query);
+          break;
+        case RATING:
+          projects = projectTypesFilter != null
+              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
+              : database.searchProjectOrderByRate(userEmail, numberCommentsGet, offset, query);
+          break;
+        default:
+          return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+              .entity("{\"message\":\"Order filter is not valid\"}").build();
       }
+    } else {
+      projects = projectTypesFilter != null
+          ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
+          : database.searchProject(userEmail, numberCommentsGet, offset, query);
     }
-    ProjectList projects = projectTypesFilter != null
-        ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
-        : database.searchProject(userEmail, numberCommentsGet, offset, query);
 
     if (projects == null) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)

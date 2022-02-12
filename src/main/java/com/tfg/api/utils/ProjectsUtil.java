@@ -4,9 +4,11 @@ import java.io.File;
 
 import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
+import com.tfg.api.data.OrderFilter;
 import com.tfg.api.data.ProjectType;
 
 import io.github.cdimascio.dotenv.Dotenv;
+
 
 public class ProjectsUtil {
   public static Boolean userIsAuthor(Long projectId, String userEmail) {
@@ -83,6 +85,15 @@ public class ProjectsUtil {
       } catch (Exception e) {
         return false;
       }
+    }
+    return true;
+  }
+
+  public static Boolean orderFilterIsValid(String orderFilter){
+    try{
+      OrderFilter.valueOf(orderFilter);
+    }catch(Exception e){
+      return false;
     }
     return true;
   }
