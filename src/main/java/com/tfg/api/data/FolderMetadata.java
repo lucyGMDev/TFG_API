@@ -4,6 +4,7 @@ public class FolderMetadata {
   private Long numberViews;
 
   public FolderMetadata() {
+    this.numberViews = 0L;
   }
 
   
@@ -20,4 +21,8 @@ public class FolderMetadata {
     this.numberViews = numberViews;
   }
 
+
+  public void incrementNumberViews() {
+    this.numberViews++;
+  }
 }

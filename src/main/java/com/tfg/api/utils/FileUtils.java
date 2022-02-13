@@ -42,14 +42,14 @@ public class FileUtils {
 
   public static Boolean userCanAccessFile(Long projectId, String directoryName, String fileName, String userEmail)
       throws Exception {
-    if (!ProjectsUtil.userCanAccessProject(projectId, userEmail))
+    if (!ProjectUtils.userCanAccessProject(projectId, userEmail))
       return false;
     FileData metadataFile = getMetadataFile(projectId, directoryName, fileName);
     if (metadataFile == null) {
       throw new Exception("Error getting metadata file");
     }
 
-    if (!metadataFile.getIsPublic() && !ProjectsUtil.userIsAuthor(projectId, userEmail))
+    if (!metadataFile.getIsPublic() && !ProjectUtils.userIsAuthor(projectId, userEmail))
       return false;
 
     return true;

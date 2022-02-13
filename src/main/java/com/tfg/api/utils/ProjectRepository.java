@@ -128,22 +128,34 @@ public class ProjectRepository {
     return commit.getName();
   }
 
+  public String createMetadataFolder(String metadata, String folderName)
+      throws IOException, GitAPIException {
+    String path = getRepository().getDirectory().getParentFile().getAbsolutePath();
+    File metadataFolder = new File(path);
+    if (!metadataFolder.exists())
+      metadataFolder.createNewFile();
+    createFileFromString(metadata, path, folderName + ".json");
+    getGit().add().addFilepattern(folderName + ".json").call();
+    String commitMessage = "Create folder metadata file: " + folderName + ".json";
+    RevCommit commit = getGit().commit().setMessage(commitMessage).call();
+
+    return commit.getName();
+  }
+
   public void changeVersion(String versionId) throws RefAlreadyExistsException, RefNotFoundException,
       InvalidRefNameException, CheckoutConflictException, GitAPIException {
     getGit().checkout().setName(versionId).call();
   }
 
-  public String getCurrentVersion() throws NoHeadException, GitAPIException
-  {
+  public String getCurrentVersion() throws NoHeadException, GitAPIException {
     RevCommit currentVersion = getGit().log().setMaxCount(1).call().iterator().next();
     String currentVersionId = currentVersion.getName();
     return currentVersionId;
   }
 
-  public void removerFileFromProject(String path) throws NoFilepatternException, GitAPIException
-  {
+  public void removerFileFromProject(String path) throws NoFilepatternException, GitAPIException {
     File file = new File(path);
-    if(file.exists()){
+    if (file.exists()) {
       file.delete();
       getGit().add().addFilepattern(".").call();
       getGit().commit().setMessage("File removed").call();

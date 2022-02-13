@@ -3,11 +3,13 @@ package com.tfg.api.utils;
 import com.tfg.api.data.Version;
 import com.tfg.api.data.VersionList;
 
+import io.github.cdimascio.dotenv.Dotenv;
+
 public class VersionsUtils {
   public static VersionList getVersionsProject(final Long projectId, Boolean isAuthor) throws Exception {
     DBManager database = new DBManager();
     VersionList versions = new VersionList();
-
+    Dotenv environmentVariablesManager = Dotenv.load();
 
     VersionList allVersions = database.getVersionsProject(projectId);
     if (allVersions == null)
@@ -21,7 +23,7 @@ public class VersionsUtils {
     if (projectIsPublic == null)
       throw new Exception("Error while getting versions for project " + projectId);
 
-    Version currentVersion = new Version(projectId, lastVersionId, "current version", projectIsPublic);
+    Version currentVersion = new Version(projectId, lastVersionId, environmentVariablesManager.get("CURRENT_VERSION_NAME"), projectIsPublic);
     if (isAuthor || currentVersion.getIsPublic())
       versions.getVersionList().add(currentVersion);
 

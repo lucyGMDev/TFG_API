@@ -99,37 +99,37 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{versionId}/getFiles")
+  @Path("/{projectId}/folder/{folderName}/getFiles")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFilesFromFolder(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @PathParam("versionId") final String versionId) {
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.getFilesFromFolder(token, projectId, folderName, versionId);
+    return ProjectController.getFilesFromFolder(token, projectId, folderName, versionName);
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{fileName}/{versionId}")
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileFromVersion(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
-      @PathParam("fileName") final String fileName, @PathParam("versionId") final String versionId) {
+      @PathParam("fileName") final String fileName, @QueryParam("versionName")@DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.getFileFromVersion(token, projectId, folderName, fileName, versionId);
+    return ProjectController.getFileFromVersion(token, projectId, folderName, fileName, versionName);
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{filename}/{versionId}/downloadFile")
+  @Path("/{projectId}/folder/{folderName}/filename/{filename}/downloadFile")
   @Produces(MediaType.MULTIPART_FORM_DATA)
   public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
-      @PathParam("filename") final String filename, @PathParam("versionId") final String versionId) {
+      @PathParam("filename") final String filename, @QueryParam("versionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.downloadFileFromVersion(token, projectId, folderName, filename, versionId);
+    return ProjectController.downloadFileFromVersion(token, projectId, folderName, filename, versionName);
   }
 
   @PUT
-  @Path("/{projectId}/{folderName}/{fileName}")
+  @Path("/{projectId}/folder/{folderName}/filename/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response updateFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
@@ -142,24 +142,24 @@ public class ProjectResources {
   }
 
   @POST
-  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/rateFile/{score}")
+  @Path("/{projectId}/folder/{folderName}/filename/{fileName}/rateFile")
   @Produces(MediaType.APPLICATION_JSON)
   public Response rateFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @PathParam("fileName") final String fileName, @PathParam("versionId") final String versionId,
-      @PathParam("score") final Integer score) {
+      @PathParam("fileName") final String fileName, @QueryParam("versionName") @DefaultValue("") final String versionName,
+      @QueryParam("score") final Integer score) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.rateFile(token, projectId, folderName, fileName, versionId, score);
+    return ProjectController.rateFile(token, projectId, folderName, fileName, versionName, score);
   }
 
   @GET
-  @Path("/{projectId}/{folderName}/{fileName}/{versionId}/getRating")
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}/getUserRating")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileRatingUser(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @PathParam("fileName") final String filename, @PathParam("versionId") final String versionId) {
+      @PathParam("fileName") final String filename, @QueryParam("vesionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.getFileRatingUser(token, projectId, folderName, filename, versionId);
+    return ProjectController.getFileRatingUser(token, projectId, folderName, filename, versionName);
   }
 
   @POST

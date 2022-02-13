@@ -665,12 +665,12 @@ public class DBManager {
     return -1;
   }
 
-  public boolean versionExistsOnProject(final Long projectId, final String versionId) {
-    String query = "SELECT * FROM project_version WHERE project_id=? AND version_commit = ?;";
+  public boolean versionExistsOnProject(final Long projectId, final String versionName) {
+    String query = "SELECT * FROM project_version WHERE project_id=? AND name = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
-      statement.setString(2, versionId);
+      statement.setString(2, versionName);
       ResultSet result = statement.executeQuery();
       if (result.next()) {
         return true;
@@ -683,12 +683,12 @@ public class DBManager {
     return false;
   }
 
-  public boolean versionIsPublic(final Long projectId, final String versionId) {
-    String query = "SELECT public FROM project_version WHERE project_id=? AND version_commit = ?;";
+  public boolean versionIsPublic(final Long projectId, final String versionName) {
+    String query = "SELECT public FROM project_version WHERE project_id=? AND name = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
-      statement.setString(2, versionId);
+      statement.setString(2, versionName);
       ResultSet result = statement.executeQuery();
       if (result.next()) {
         return result.getBoolean("public");
@@ -699,6 +699,25 @@ public class DBManager {
       e.printStackTrace();
     }
     return false;
+  }
+
+  public String getCommitIdFromVersion(final Long projectId, final String versionName){
+    String query = "SELECT version_commit FROM project_version WHERE project_id = ? AND name = ?;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setLong(1, projectId);
+      statement.setString(2,versionName);
+      ResultSet result = statement.executeQuery();
+      if(result.next()){
+        return result.getString("version_commit");
+      }
+    }
+    catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
   }
 
   public VersionList getVersionsProject(final Long projectId) {
@@ -723,13 +742,13 @@ public class DBManager {
     return null;
   }
 
-  public int updateVersionId(final Long projectId, final String oldVersion, final String newVersion) {
-    String query = "UPDATE project_version SET version_commit = ? WHERE project_id = ? AND version_commit = ?;";
+  public int updateVersionCommit(final Long projectId, final String versionName, final String commitId) {
+    String query = "UPDATE project_version SET version_commit = ? WHERE project_id = ? AND name = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, newVersion);
+      statement.setString(1, commitId);
       statement.setLong(2, projectId);
-      statement.setString(3, oldVersion);
+      statement.setString(3, versionName);
       int numRows = statement.executeUpdate();
       if (numRows >= 0) {
         return numRows;

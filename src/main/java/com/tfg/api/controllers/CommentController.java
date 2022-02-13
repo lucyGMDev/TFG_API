@@ -11,7 +11,7 @@ import com.tfg.api.data.ListComments;
 import com.tfg.api.data.bodies.CommentBody;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.JwtUtils;
-import com.tfg.api.utils.ProjectsUtil;
+import com.tfg.api.utils.ProjectUtils;
 
 public class CommentController {
 
@@ -39,7 +39,7 @@ public class CommentController {
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
 
-    if (!ProjectsUtil.userCanAccessProject(projectId, userEmail)) {
+    if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
     }
@@ -75,7 +75,7 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"There are any comment on this project with this ID\"}").build();
     }
 
-    if(!ProjectsUtil.userCanAccessProject(projectId, userEmail))
+    if(!ProjectUtils.userCanAccessProject(projectId, userEmail))
     {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"You can not access this project\"}").build();
     }
@@ -128,7 +128,7 @@ public class CommentController {
           .entity("{\"message\":\"You can not response to a comment who does not exist\"}").build();
     }
 
-    if (!ProjectsUtil.userCanAccessProject(comment.getProjectId(), userEmail)) {
+    if (!ProjectUtils.userCanAccessProject(comment.getProjectId(), userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
     }
@@ -172,7 +172,7 @@ public class CommentController {
           .entity("{\"message\":\"There are any comment with this id on this project\"}").build();
     }
 
-    if (!ProjectsUtil.userIsAuthor(projectId, userEmail)) {
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to edit this project\"}").build();
     }
