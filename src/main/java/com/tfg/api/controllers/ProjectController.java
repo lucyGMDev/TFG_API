@@ -126,7 +126,6 @@ public class ProjectController {
   }
 
   public static Response createProject(final ProjectBody project, final String token) {
-    Gson jsonManager = new Gson();
     Dotenv environmentVariablesManager = Dotenv.load();
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
@@ -189,6 +188,12 @@ public class ProjectController {
     }
 
     Long projectId = projectCreated.getProject_id();
+    if (database.addCoauthorToProject(projectId, owner) == -1) {
+      database.deleteProject(projectId);
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error creating repository\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
     String rootProjects = environmentVariablesManager.get("PROJECTS_ROOT");
     String projectPath = rootProjects + "/" + projectId;
     final File projectFolder = new File(projectPath);
@@ -222,8 +227,8 @@ public class ProjectController {
       }
     }
 
-    projectCreated.setCoauthors(project.getCoauthors());
-    return Response.status(Response.Status.OK).entity(jsonManager.toJson(projectCreated))
+    String response = String.format("{\"project_id\":%d}", projectId);
+    return Response.status(Response.Status.OK).entity(response)
         .type(MediaType.APPLICATION_JSON)
         .build();
   }
@@ -549,9 +554,9 @@ public class ProjectController {
     }
 
     String commitIdVersion;
-    try{
+    try {
       commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName, userEmail);
-    }catch (NullPointerException npe) {
+    } catch (NullPointerException npe) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting files from folder\"}").build();
     } catch (NotFoundException nfe) {
@@ -566,7 +571,6 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
-
 
     String lastCommitVersion = database.getLastCommitProject(projectId);
 
@@ -594,7 +598,7 @@ public class ProjectController {
           .entity("{\"message\":\"Error while getting files\"}").build();
     }
 
-    try {//Una vez que he obtenido los archivos, añado la visita
+    try {// Una vez que he obtenido los archivos, añado la visita
       String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + folderName
           + ".json";
       File folderMetadataFile = new File(folderMetadataPath);
@@ -608,8 +612,7 @@ public class ProjectController {
       String commitId = project.createMetadataFolder(jsonManager.toJson(metadata), folderName);
       if (!versionName.equals("")) {
         database.updateVersionCommit(projectId, versionName, commitId);
-      }
-      else {
+      } else {
         database.addCommitProject(projectId, commitId);
       }
     } catch (Exception e) {
@@ -654,9 +657,9 @@ public class ProjectController {
     }
 
     String commitIdVersion;
-    try{
+    try {
       commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName, userEmail);
-    }catch (NullPointerException npe) {
+    } catch (NullPointerException npe) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting file\"}").build();
     } catch (NotFoundException nfe) {
@@ -666,7 +669,6 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this version\"}").build();
     }
-    
 
     if (!ProjectUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
@@ -750,9 +752,9 @@ public class ProjectController {
     }
 
     String commitIdVersion;
-    try{
+    try {
       commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName, userEmail);
-    }catch (NullPointerException npe) {
+    } catch (NullPointerException npe) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting file\"}").build();
     } catch (NotFoundException nfe) {
@@ -794,14 +796,6 @@ public class ProjectController {
 
     String filePath = projectPath + "/" + folderName + "/" + filename;
     File file = new File(filePath);
-    // TODO: Comprobar que funciona bien y no cambia el archivo file, o te lo
-    // devuelve mal
-    String lastProjectVersion = database.getLastCommitProject(projectId);
-    try {
-      project.changeVersion(lastProjectVersion);
-    } catch (GitAPIException e) {
-      e.printStackTrace();
-    }
 
     return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object) file)
         .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
@@ -996,9 +990,9 @@ public class ProjectController {
     }
 
     String commitIdVersion;
-    try{
+    try {
       commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName, userEmail);
-    }catch (NullPointerException npe) {
+    } catch (NullPointerException npe) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while rating file\"}").build();
     } catch (NotFoundException nfe) {
@@ -1113,7 +1107,7 @@ public class ProjectController {
 
     if (!database.projectExitsById(projectId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-          .encoding("{\"message\":\"There are any project with this id\"}").build();
+          .entity("{\"message\":\"There are any project with this id\"}").build();
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
@@ -1331,6 +1325,7 @@ public class ProjectController {
   public static Response getVersions(final String token, final Long projectId) {
     JwtUtils jwtManager = new JwtUtils();
     Gson jsonManager = new Gson();
+    DBManager database = new DBManager();
     String userEmail;
     try {
       userEmail = jwtManager.getUserEmailFromJwt(token);
@@ -1338,6 +1333,16 @@ public class ProjectController {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error validating JWT\"}")
           .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if (projectId == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Project id is required\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {

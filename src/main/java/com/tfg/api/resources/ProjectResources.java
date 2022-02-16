@@ -119,7 +119,7 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/{projectId}/folder/{folderName}/filename/{filename}/downloadFile")
+  @Path("/{projectId}/folder/{folderName}/file/{filename}/downloadFile")
   @Produces(MediaType.MULTIPART_FORM_DATA)
   public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
@@ -129,7 +129,7 @@ public class ProjectResources {
   }
 
   @PUT
-  @Path("/{projectId}/folder/{folderName}/filename/{fileName}")
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
   public Response updateFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
@@ -142,7 +142,7 @@ public class ProjectResources {
   }
 
   @POST
-  @Path("/{projectId}/folder/{folderName}/filename/{fileName}/rateFile")
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}/rateFile")
   @Produces(MediaType.APPLICATION_JSON)
   public Response rateFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
