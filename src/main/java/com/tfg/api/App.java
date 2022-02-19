@@ -16,6 +16,10 @@ import com.tfg.api.filters.JWTTokenNeededFilter;
 
 public final class App {
 
+	//TODO: No tengo metodo para obtener los proyectos de un usuario
+	//TODO: Mejorar las urls de los ProjectResources
+	//TODO: Tener cuidado a la hora de hacer las consultas con offset o limits, porque puede dar lugar a perder algun archivo si el orden cambia
+	
 	private static final String BASE_URI = Dotenv.load().get("API_URL");
 
 	private static HttpServer createConection() throws URISyntaxException {

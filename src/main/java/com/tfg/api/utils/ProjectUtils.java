@@ -70,7 +70,7 @@ public class ProjectUtils {
 
   public static FileList getFilesFromFolder(Long projectId, String folderName, Boolean isAuthor) throws Exception {
     Dotenv dotenv = Dotenv.load();
-    String folderPath = dotenv.get("PROJECTS_ROOT") + "/" + projectId + "/" + folderName;
+    String folderPath = dotenv.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName;
     File folder = new File(folderPath);
     File[] files = folder.listFiles();
     FileList fileList = new FileList();
@@ -108,7 +108,7 @@ public class ProjectUtils {
   public static FolderMetadata getMetadataFolder(Long projectId, String folderName) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + folderName + ".json";
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName + ".json";
     try {
       BufferedReader reader = new BufferedReader(new FileReader(path));
       String currentLine;

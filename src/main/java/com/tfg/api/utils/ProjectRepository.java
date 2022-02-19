@@ -25,11 +25,11 @@ public class ProjectRepository {
   Repository repository;
 
   public ProjectRepository(String repositoryPath) throws IllegalStateException, GitAPIException, IOException {
-    File gitFile = new File(repositoryPath + "/.git");
+    File gitFile = new File(repositoryPath+ File.separator + ".git");
     if (!gitFile.exists()) {
       this.git = Git.init().setDirectory(new File(repositoryPath)).call();
     }
-    this.repository = new FileRepository(repositoryPath + "/.git");
+    this.repository = new FileRepository(repositoryPath + File.separator + ".git");
     this.git = new Git(this.repository);
 
   }
@@ -55,7 +55,7 @@ public class ProjectRepository {
     BufferedOutputStream bos = null;
     try {
       bis = new BufferedInputStream(dStream);
-      bos = new BufferedOutputStream(new FileOutputStream(path + "/" + filename));
+      bos = new BufferedOutputStream(new FileOutputStream(path + File.separator + filename));
       int i;
       while ((i = bis.read()) != -1) {
         bos.write(i);
@@ -79,14 +79,14 @@ public class ProjectRepository {
         }
       }
     }
-    File file = new File(path + "/" + filename);
+    File file = new File(path + File.separator + filename);
     return file;
   }
 
   public File createFileFromString(String fileContent, String path, String filename) {
     BufferedWriter writer = null;
     try {
-      writer = new BufferedWriter(new FileWriter(path + "/" + filename));
+      writer = new BufferedWriter(new FileWriter(path + File.separator + filename));
       writer.write(fileContent);
     } catch (IOException e) {
       e.printStackTrace();
@@ -100,14 +100,14 @@ public class ProjectRepository {
       }
     }
 
-    File file = new File(path + "/" + filename);
+    File file = new File(path + File.separator + filename);
     return file;
   }
 
   public String addFile(InputStream dStream, String folderName, String filename) throws IOException, GitAPIException {
-    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + "/" + folderName;
+    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName;
     File fileUpdated = writeInfo(dStream, path, filename);
-    getGit().add().addFilepattern(folderName + "/" + fileUpdated.getName()).call();
+    getGit().add().addFilepattern(folderName + File.separator + fileUpdated.getName()).call();
     String commitMessage = "Add file: " + filename + " to folder " + folderName;
     RevCommit commit = getGit().commit().setMessage(commitMessage).call();
     return commit.getName();
@@ -116,12 +116,12 @@ public class ProjectRepository {
   public String createMetadataFile(String metadata, String folderName, String filename)
       throws IOException, GitAPIException {
     String metadataFilename = FileUtils.getMetadataFilename(filename);
-    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + "/" + folderName + "/metadata";
+    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName + File.separator + "metadata";
     File metadataFolder = new File(path);
     if (!metadataFolder.exists())
       metadataFolder.mkdirs();
     File metadataFile = createFileFromString(metadata, path, metadataFilename);
-    getGit().add().addFilepattern(folderName + "/metadata/" + metadataFile.getName()).call();
+    getGit().add().addFilepattern(folderName + File.separator + "metadata"+ File.separator + metadataFile.getName()).call();
     String commitMessage = "Create metadata file: " + metadataFilename + " to folder " + folderName;
     RevCommit commit = getGit().commit().setMessage(commitMessage).call();
 

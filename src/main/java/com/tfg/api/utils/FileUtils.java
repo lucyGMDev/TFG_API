@@ -18,8 +18,8 @@ public class FileUtils {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
     String metadataFileName = getMetadataFilename(filename);
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName
-        + "/metadata/" + metadataFileName;
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + directoryName
+        + File.separator +"metadata"+ File.separator + metadataFileName;
     try {
       BufferedReader reader = new BufferedReader(new FileReader(path));
       String currentLine;
@@ -61,9 +61,9 @@ public class FileUtils {
     if (fileExists(projectId, directoryName, oldFileName)) {
 
       File oldFile = new File(
-          environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName + "/" + oldFileName);
+          environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + directoryName + File.separator + oldFileName);
       File newFile = new File(
-          environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + directoryName + "/" + newFileName);
+          environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + directoryName + File.separator + newFileName);
       try {
         oldFile.renameTo(newFile);
         return 1;
@@ -86,7 +86,7 @@ public class FileUtils {
 
   public static Boolean fileExists(Long projectId, String foldername, String filename) {
     Dotenv environmentVariablesManager = Dotenv.load();
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + foldername + "/"
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + foldername + File.separator
         + filename;
     File file = new File(path);
     return file.exists();

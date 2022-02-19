@@ -120,7 +120,7 @@ public class ProjectResources {
 
   @GET
   @Path("/{projectId}/folder/{folderName}/file/{filename}/downloadFile")
-  @Produces(MediaType.MULTIPART_FORM_DATA)
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
   public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
       @PathParam("filename") final String filename, @QueryParam("versionName") @DefaultValue("") final String versionName) {

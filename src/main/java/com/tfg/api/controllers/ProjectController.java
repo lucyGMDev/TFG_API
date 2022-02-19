@@ -195,13 +195,13 @@ public class ProjectController {
     }
 
     String rootProjects = environmentVariablesManager.get("PROJECTS_ROOT");
-    String projectPath = rootProjects + "/" + projectId;
+    String projectPath = rootProjects + File.separator + projectId;
     final File projectFolder = new File(projectPath);
     projectFolder.mkdirs();
 
     String[] projectsSubdir = environmentVariablesManager.get("PROJECT_SUBDIRS").split(",");
     for (String subDir : projectsSubdir) {
-      String subFolderPath = projectPath + "/" + subDir.trim();
+      String subFolderPath = projectPath + File.separator + subDir.trim();
       File subFolder = new File(subFolderPath);
       subFolder.mkdirs();
     }
@@ -453,7 +453,7 @@ public class ProjectController {
     }
 
     String filename = fileDetail.getFileName();
-    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository projectRepository;
     try {
       projectRepository = new ProjectRepository(projectPath);
@@ -574,7 +574,7 @@ public class ProjectController {
 
     String lastCommitVersion = database.getLastCommitProject(projectId);
 
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project;
     try {
       project = new ProjectRepository(path);
@@ -599,7 +599,7 @@ public class ProjectController {
     }
 
     try {// Una vez que he obtenido los archivos, añado la visita
-      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId + "/" + folderName
+      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName
           + ".json";
       File folderMetadataFile = new File(folderMetadataPath);
       FolderMetadata metadata;
@@ -675,7 +675,7 @@ public class ProjectController {
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
 
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project = null;
 
     try {
@@ -765,7 +765,7 @@ public class ProjectController {
           .entity("{\"message\":\"You hve not permission to access this version\"}").build();
     }
 
-    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project;
     try {
       project = new ProjectRepository(projectPath);
@@ -794,7 +794,7 @@ public class ProjectController {
           .entity("{\"message\":\"Error while getting file\"}").build();
     }
 
-    String filePath = projectPath + "/" + folderName + "/" + filename;
+    String filePath = projectPath + File.separator + folderName + File.separator + filename;
     File file = new File(filePath);
 
     return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object) file)
@@ -825,7 +825,7 @@ public class ProjectController {
     }
 
     String lastProjectVersion = database.getLastCommitProject(projectId);
-    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository projectRepository;
     try {
       projectRepository = new ProjectRepository(projectPath);
@@ -862,8 +862,8 @@ public class ProjectController {
               .entity("{\"message\":\"Error while updating file\"}").type(MediaType.APPLICATION_JSON).build();
         }
 
-        String oldMetadataFilename = "/metadata/" + FileUtils.getMetadataFilename(filename);
-        String newMetadataFilename = "/metadata/" + FileUtils.getMetadataFilename(fileDetail.getFileName());
+        String oldMetadataFilename = File.separator+"metadata"+ File.separator + FileUtils.getMetadataFilename(filename);
+        String newMetadataFilename = File.separator+"metadata"+ File.separator + FileUtils.getMetadataFilename(fileDetail.getFileName());
 
         if (FileUtils.renameFile(projectId, folderName, oldMetadataFilename, newMetadataFilename) == -1) {
           try {
@@ -1003,7 +1003,7 @@ public class ProjectController {
           .entity("{\"message\":\"You have not permission to access this version\"}").build();
     }
 
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project;
     try {
       project = new ProjectRepository(path);
@@ -1149,7 +1149,7 @@ public class ProjectController {
           .entity("{\"message\":\"You hve not permission to access this project\"}").build();
     }
 
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + "/" + projectId;
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project;
     try {
       project = new ProjectRepository(path);
