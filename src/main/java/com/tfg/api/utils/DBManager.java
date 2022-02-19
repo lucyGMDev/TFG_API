@@ -222,11 +222,11 @@ public class DBManager {
   public ProjectList getProjectsFromUser(String userEmail) {
     String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON p.project_id = cp.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE cp.coauthor_email = ? GROUP BY p.project_id;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
-      statement.setString(1,userEmail);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userEmail);
       ResultSet result = statement.executeQuery();
       ProjectList projects = new ProjectList();
-      while(result.next()){
+      while (result.next()) {
         String[] coauthors = getProjectCoauthors(result.getLong(1));
         Array typesArray = result.getArray("type");
         String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
@@ -236,7 +236,7 @@ public class DBManager {
                 result.getBoolean("public"), coauthors, types, result.getFloat("score")));
       }
       return projects;
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -542,7 +542,7 @@ public class DBManager {
   }
 
   public Float getScoreFromProject(Long projectId) {
-    String query = "SELECT AVG(score) AS \"score\" FROM project WHERE project_id = ? GROUP BY project_id;";
+    String query = "SELECT AVG(score) AS \"score\" FROM score_project WHERE project_id = ? GROUP BY project_id;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
@@ -747,6 +747,25 @@ public class DBManager {
     return false;
   }
 
+  public int removeVersion(final Long projectId, final String versionName) {
+    String query = "DELETE FROM project_version WHERE project_id=? AND name = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, versionName);
+      int numRows = statement.executeUpdate();
+      if (numRows >= 0) {
+        return numRows;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return -1;
+  }
+
   public String getCommitIdFromVersion(final Long projectId, final String versionName) {
     String query = "SELECT version_commit FROM project_version WHERE project_id = ? AND name = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -926,6 +945,44 @@ public class DBManager {
         return numRows;
       }
     } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return -1;
+  }
+
+  public Long addChangeMessageProject(final Long projectId, final String versionName, final String changeMessage) {
+    String query = "INSERT INTO project_changes (project_id,version_name,change_message) VALUES(?,?,?);";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
+      statement.setLong(1, projectId);
+      statement.setString(2, versionName);
+      statement.setString(3, changeMessage);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        ResultSet result = statement.getGeneratedKeys();
+        if (result.next()) {
+          return result.getLong("change_id");
+        }
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public int removeChangeMessagesFromVersion(final Long projectId, final String versionName){
+    String query = "DELETE FROM project_changes WHERE project_id = ? AND version_name = ?;";
+
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setLong(1, projectId);
+      statement.setString(2,versionName);
+    }catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();

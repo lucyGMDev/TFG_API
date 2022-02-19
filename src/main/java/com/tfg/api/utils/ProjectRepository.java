@@ -104,11 +104,10 @@ public class ProjectRepository {
     return file;
   }
 
-  public String addFile(InputStream dStream, String folderName, String filename) throws IOException, GitAPIException {
+  public String addFile(InputStream dStream, String folderName, String filename, String commitMessage) throws IOException, GitAPIException {
     String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName;
     File fileUpdated = writeInfo(dStream, path, filename);
     getGit().add().addFilepattern(folderName + File.separator + fileUpdated.getName()).call();
-    String commitMessage = "Add file: " + filename + " to folder " + folderName;
     RevCommit commit = getGit().commit().setMessage(commitMessage).call();
     return commit.getName();
   }
@@ -153,12 +152,14 @@ public class ProjectRepository {
     return currentVersionId;
   }
 
-  public void removerFileFromProject(String path) throws NoFilepatternException, GitAPIException {
+  public String removerFileFromProject(String path, String commitMessage) throws NoFilepatternException, GitAPIException {
     File file = new File(path);
     if (file.exists()) {
       file.delete();
       getGit().add().addFilepattern(".").call();
-      getGit().commit().setMessage("File removed").call();
+      RevCommit commit =  getGit().commit().setMessage(commitMessage).call();
+      return commit.getName();
     }
+    return null;
   }
 }

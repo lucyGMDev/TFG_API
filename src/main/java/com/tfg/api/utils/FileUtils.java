@@ -13,6 +13,14 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class FileUtils {
   
+  
+  /** 
+   * @param projectId
+   * @param directoryName
+   * @param filename
+   * @return FileData
+   * @throws Exception
+   */
   public static FileData getMetadataFile(Long projectId, String directoryName, String filename) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
@@ -40,6 +48,15 @@ public class FileUtils {
     throw new Exception("Error while getting metadata");
   }
 
+  
+  /** 
+   * @param projectId
+   * @param directoryName
+   * @param fileName
+   * @param userEmail
+   * @return Boolean
+   * @throws Exception
+   */
   public static Boolean userCanAccessFile(Long projectId, String directoryName, String fileName, String userEmail)
       throws Exception {
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail))
@@ -55,6 +72,14 @@ public class FileUtils {
     return true;
   }
 
+  
+  /** 
+   * @param projectId
+   * @param directoryName
+   * @param oldFileName
+   * @param newFileName
+   * @return int
+   */
   public static int renameFile(Long projectId, String directoryName, String oldFileName, String newFileName) {
     Dotenv environmentVariablesManager = Dotenv.load();
     if (fileExists(projectId, directoryName, oldFileName)) {
@@ -74,15 +99,32 @@ public class FileUtils {
     return -1;
   }
 
+  
+  /** 
+   * @param originalFilename
+   * @return String
+   */
   public static String getMetadataFilename(String originalFilename) {
     return originalFilename + ".json";
   }
 
+  
+  /** 
+   * @param path
+   * @return Boolean
+   */
   public static Boolean fileExists(String path) {
     File file = new File(path);
     return file.exists();
   }
 
+  
+  /** 
+   * @param projectId
+   * @param foldername
+   * @param filename
+   * @return Boolean
+   */
   public static Boolean fileExists(Long projectId, String foldername, String filename) {
     Dotenv environmentVariablesManager = Dotenv.load();
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + foldername + File.separator

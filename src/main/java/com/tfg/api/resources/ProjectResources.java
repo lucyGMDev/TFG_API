@@ -3,6 +3,7 @@ package com.tfg.api.resources;
 import java.io.InputStream;
 
 import javax.ws.rs.Consumes;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.GET;
 import javax.ws.rs.HeaderParam;
@@ -36,7 +37,8 @@ public class ProjectResources {
   @GET
   @Path("/user/{userEmail}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getUserProjects(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("userEmail") final String userEmail){
+  public Response getUserProjects(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("userEmail") final String userEmail) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getUserProjects(token, userEmail);
   }
@@ -47,7 +49,8 @@ public class ProjectResources {
   public Response searchProjects(@HeaderParam("Authorization") final String authorizationHeader,
       @QueryParam("offset") final Long offset, @QueryParam("numberProjectsLoad") final Long numberProjectsLoad,
       @QueryParam("keyword") @DefaultValue("") final String keyword,
-      @QueryParam("type") @DefaultValue("") final String type, @QueryParam("order")@DefaultValue("") final String order) {
+      @QueryParam("type") @DefaultValue("") final String type,
+      @QueryParam("order") @DefaultValue("") final String order) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     String[] typesArray = type.equals("") ? null : type.split(",");
     return ProjectController.searchProjects(token, offset, numberProjectsLoad, keyword, typesArray, order);
@@ -79,7 +82,7 @@ public class ProjectResources {
   public Response addCoauthors(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, final ProjectBody coauthors) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.addCoauthorFromProject(projectId, token, coauthors.getCoauthors());
+    return ProjectController.addCoauthorToProject(projectId, token, coauthors.getCoauthors());
   }
 
   @PUT
@@ -121,7 +124,8 @@ public class ProjectResources {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileFromVersion(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
-      @PathParam("fileName") final String fileName, @QueryParam("versionName")@DefaultValue("") final String versionName) {
+      @PathParam("fileName") final String fileName,
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFileFromVersion(token, projectId, folderName, fileName, versionName);
   }
@@ -131,7 +135,8 @@ public class ProjectResources {
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
   public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
-      @PathParam("filename") final String filename, @QueryParam("versionName") @DefaultValue("") final String versionName) {
+      @PathParam("filename") final String filename,
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.downloadFileFromVersion(token, projectId, folderName, filename, versionName);
   }
@@ -149,12 +154,21 @@ public class ProjectResources {
         uploadedInputStream, fileDetail);
   }
 
+  @DELETE
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response deleteFile(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName, @PathParam("fileName") final String fileName){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.removeFile(token, projectId, folderName, fileName);
+  }
+
   @POST
   @Path("/{projectId}/folder/{folderName}/file/{fileName}/rateFile")
   @Produces(MediaType.APPLICATION_JSON)
   public Response rateFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @PathParam("fileName") final String fileName, @QueryParam("versionName") @DefaultValue("") final String versionName,
+      @PathParam("fileName") final String fileName,
+      @QueryParam("versionName") @DefaultValue("") final String versionName,
       @QueryParam("score") final Integer score) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.rateFile(token, projectId, folderName, fileName, versionName, score);
@@ -165,7 +179,8 @@ public class ProjectResources {
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFileRatingUser(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @PathParam("fileName") final String filename, @QueryParam("vesionName") @DefaultValue("") final String versionName) {
+      @PathParam("fileName") final String filename,
+      @QueryParam("vesionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFileRatingUser(token, projectId, folderName, filename, versionName);
   }
@@ -208,12 +223,21 @@ public class ProjectResources {
     return ProjectController.createVersion(token, projectId, name, isPublic);
   }
 
+  @DELETE
+  @Path("{projectId}/deleteVersion")
+  public Response deleteVersion(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @QueryParam("name") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.deleteVersion(token, projectId, versionName);
+  }
+
   @POST
   @Path("{projectId}/rateProject")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response rateProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @QueryParam("score") final Float score){
+  public Response rateProject(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @QueryParam("score") final Float score) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.rateProject(token, projectId,score);
+    return ProjectController.rateProject(token, projectId, score);
   }
 
 }

@@ -24,8 +24,10 @@ import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
+import com.tfg.api.resources.ProjectResources;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.FileUtils;
+import com.tfg.api.utils.HistorialMessages;
 import com.tfg.api.utils.JwtUtils;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectUtils;
@@ -165,9 +167,9 @@ public class ProjectController {
     Dotenv environmentVariablesManager = Dotenv.load();
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
-    String owner = null;
+    String userEmail = null;
     try {
-      owner = jwtManager.getUserEmailFromJwt(token);
+      userEmail = jwtManager.getUserEmailFromJwt(token);
     } catch (Exception e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
@@ -177,12 +179,12 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Owner is required\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
-    if (!project.getOwner().equals(owner)) {
+    if (!project.getOwner().equals(userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"Project owner does not match with login user\"}").type(MediaType.APPLICATION_JSON)
           .build();
     }
-    if (!database.userExistsByEmail(owner)) {
+    if (!database.userExistsByEmail(userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"There are any user register with that email\"}").type(MediaType.APPLICATION_JSON)
           .build();
@@ -224,7 +226,7 @@ public class ProjectController {
     }
 
     Long projectId = projectCreated.getProject_id();
-    if (database.addCoauthorToProject(projectId, owner) == -1) {
+    if (database.addCoauthorToProject(projectId, userEmail) == -1) {
       database.deleteProject(projectId);
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
           .entity("{\"message\":\"Error creating repository\"}").type(MediaType.APPLICATION_JSON).build();
@@ -249,7 +251,8 @@ public class ProjectController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
           .entity("{\"message\":\"Error creating repository\"}").type(MediaType.APPLICATION_JSON).build();
     }
-
+    String changeMessage = HistorialMessages.createProject(userEmail);
+    database.addChangeMessageProject(projectId, null, changeMessage);
     if (project.getCoauthors() != null) {
       for (String coauthor : project.getCoauthors()) {
         if (database.userIsCoauthor(projectId, coauthor))
@@ -273,16 +276,16 @@ public class ProjectController {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
-    String email;
+    String userEmail;
     try {
-      email = jwtManager.getUserEmailFromJwt(token);
+      userEmail = jwtManager.getUserEmailFromJwt(token);
     } catch (Exception e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (email == null) {
+    if (userEmail == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error getting user email\"}").build();
     }
@@ -292,7 +295,7 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!ProjectUtils.userIsAuthor(projectId, email)) {
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"You do not have permission to update the project \"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -317,6 +320,8 @@ public class ProjectController {
     if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null
         || projectBody.getType() != null) {
       projectUpdated = database.updateProject(projectId, project);
+      String changeMessage = HistorialMessages.updateProject(userEmail);
+      database.addChangeMessageProject(projectId, null, changeMessage);
     } else {
       projectUpdated = project;
     }
@@ -326,7 +331,7 @@ public class ProjectController {
         .build();
   }
 
-  public static Response addCoauthorFromProject(final Long projectId, String token, String[] coauthors) {
+  public static Response addCoauthorToProject(final Long projectId, String token, String[] coauthors) {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
@@ -374,7 +379,8 @@ public class ProjectController {
             .entity("{\"message\":\"An error occurred while adding coauthor\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
-
+      String changeMessage = HistorialMessages.addCoauthor(userEmail, coauthor);
+      database.addChangeMessageProject(projectId, null, changeMessage);
     }
 
     Project project = database.getProjectById(projectId);
@@ -432,6 +438,8 @@ public class ProjectController {
             .entity("{\"message\":\"An error occurred while removing coauthor\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
+      String changeMessage = HistorialMessages.removeCoauthor(userEmail, coauthor);
+      database.addChangeMessageProject(projectId, null, changeMessage);
     }
 
     Project project = database.getProjectById(projectId);
@@ -526,7 +534,9 @@ public class ProjectController {
 
     String commit = "";
     try {
-      projectRepository.addFile(uploadedInputStream, folderName, filename);
+      String commitMessage = HistorialMessages.userAddFile(userEmail, filename, folderName);
+      projectRepository.addFile(uploadedInputStream, folderName, filename, commitMessage);
+      database.addChangeMessageProject(projectId, null, commitMessage);
     } catch (Exception e) {
       try {
         projectRepository.changeVersion(lastProjectVersion);
@@ -917,7 +927,9 @@ public class ProjectController {
       }
 
       try {
-        projectRepository.addFile(uploadedInputStream, folderName, fileDetail.getFileName());
+        String changeMessage = HistorialMessages.userUpdateFile(userEmail, filename, folderName);
+        projectRepository.addFile(uploadedInputStream, folderName, fileDetail.getFileName(), changeMessage);
+        database.addChangeMessageProject(projectId, null, changeMessage);
       } catch (Exception e) {
         e.printStackTrace();
         try {
@@ -965,6 +977,78 @@ public class ProjectController {
     return Response.status(Response.Status.OK).entity(jsonManager.toJson(fileMetadata))
         .type(MediaType.APPLICATION_JSON)
         .build();
+  }
+
+  public static Response removeFile(final String token, final Long projectId, final String folderName,
+      final String fileName) {
+
+    Dotenv environmentVariablesManager = Dotenv.load();
+    DBManager database = new DBManager();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to remove files on this project\"}").build();
+    }
+
+    if (!ProjectUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Folder name is not valid\"}").build();
+    }
+
+    String lastVersionId = database.getLastCommitProject(projectId);
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project;
+    try {
+      project = new ProjectRepository(path);
+      project.changeVersion(lastVersionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while deleting version\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"This file does not exist\"}").build();
+    }
+
+    try {
+      path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName
+          + File.separator + fileName;
+      String changeMessage = HistorialMessages.userRemoveFile(userEmail, fileName, folderName);
+      project.removerFileFromProject(path, changeMessage);
+      String metadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName
+      + File.separator + "metadata" + File.separator + FileUtils.getMetadataFilename(fileName);
+      String commitId = project.removerFileFromProject(metadataPath, "Remove metadafile from " + fileName);
+      database.addChangeMessageProject(projectId, null, changeMessage);
+      database.addCommitProject(projectId, commitId);
+    } catch (GitAPIException e) {
+      e.printStackTrace();
+      try {
+        project.changeVersion(lastVersionId);
+      } catch (GitAPIException e1) {
+        e1.printStackTrace();
+      }
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while deleting version\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity("{\"message\":\"File deleted successfully\"}").build();
   }
 
   public static Response rateFile(final String token, final Long projectId, final String folderName,
@@ -1357,6 +1441,10 @@ public class ProjectController {
           .entity("{\"message\":\"Error while creating a version of this project\"}").build();
     }
 
+    String changeMessage = HistorialMessages.createVersion(userEmail, versionName);
+    database.addChangeMessageProject(projectId, null, changeMessage);
+    database.addChangeMessageProject(projectId, versionName, changeMessage);
+
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
         .entity("{\"message\":\"Version created successfully\"}").build();
   }
@@ -1402,6 +1490,44 @@ public class ProjectController {
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions))
         .build();
+  }
+
+  public static Response deleteVersion(final String token, final Long projectId, final String versionName) {
+
+    DBManager database = new DBManager();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.versionExistsOnProject(projectId, versionName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    }
+
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+
+    if (database.removeVersion(projectId, versionName) == -1) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while deleting version\"}").build();
+    }
+
+    database.removeChangeMessagesFromVersion(projectId, versionName);
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity("{\"message\":\"Version removed successfully\"}").build();
   }
 
   public static Response rateProject(final String token, final Long projectId, final Float score) {
