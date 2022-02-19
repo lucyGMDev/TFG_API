@@ -4,9 +4,12 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.AccessControlException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.MediaType;
@@ -34,6 +37,7 @@ import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class ProjectController {
+
   public static Response getProject(String token, Long projectId) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -67,8 +71,40 @@ public class ProjectController {
         .build();
   }
 
+  public static Response getUserProjects(String token, String ownerProjects) {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+
+    if (!database.userExistsByEmail(ownerProjects)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any user with this email\"}").build();
+    }
+
+    ProjectList projects = database.getProjectsFromUser(ownerProjects);
+    if (projects == null) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are some problem while loading projects\"}").build();
+    }
+
+    projects.setProjectList(projects.getProjectList().stream()
+        .filter(project -> project.getIsPublic() || Arrays.asList(project.getCoauthors()).contains(userEmail))
+        .collect(Collectors.toCollection(ArrayList::new)));
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects))
+        .build();
+  }
+
   public static Response searchProjects(final String token, final Long offset, final Long numberCommentsGet,
-      final String query, final String[] projectTypesFilter, final String orderFilter) {
+      final String keyword, final String[] typesArray, final String order) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();
@@ -86,34 +122,34 @@ public class ProjectController {
           .entity("{\"message\":\"Offset and number of comments can not been negative\"}").build();
     }
 
-    if (projectTypesFilter != null && !ProjectUtils.projectTypesAreValid(projectTypesFilter)) {
+    if (typesArray != null && !ProjectUtils.projectTypesAreValid(typesArray)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are some project filter invalid\"}").build();
     }
 
     ProjectList projects;
-    if (!orderFilter.equals("")) {
-      OrderFilter order = OrderFilter.valueOf(orderFilter);
-      switch (order) {
+    if (!order.equals("")) {
+      OrderFilter orderFilter = OrderFilter.valueOf(order);
+      switch (orderFilter) {
         case LAST_UPDATE:
-          projects = projectTypesFilter != null
-              ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
-              : database.searchProject(userEmail, numberCommentsGet, offset, query);
+          projects = typesArray != null
+              ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, keyword, typesArray)
+              : database.searchProject(userEmail, numberCommentsGet, offset, keyword);
           break;
         case RATING:
-          projects = projectTypesFilter != null
-              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, query,
-                  projectTypesFilter)
-              : database.searchProjectOrderByRate(userEmail, numberCommentsGet, offset, query);
+          projects = typesArray != null
+              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, keyword,
+                  typesArray)
+              : database.searchProjectOrderByRate(userEmail, numberCommentsGet, offset, keyword);
           break;
         default:
           return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
               .entity("{\"message\":\"Order filter is not valid\"}").build();
       }
     } else {
-      projects = projectTypesFilter != null
-          ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, query, projectTypesFilter)
-          : database.searchProject(userEmail, numberCommentsGet, offset, query);
+      projects = typesArray != null
+          ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, keyword, typesArray)
+          : database.searchProject(userEmail, numberCommentsGet, offset, keyword);
     }
 
     if (projects == null) {
@@ -599,7 +635,8 @@ public class ProjectController {
     }
 
     try {// Una vez que he obtenido los archivos, añado la visita
-      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName
+      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
+          + File.separator + folderName
           + ".json";
       File folderMetadataFile = new File(folderMetadataPath);
       FolderMetadata metadata;
@@ -862,8 +899,10 @@ public class ProjectController {
               .entity("{\"message\":\"Error while updating file\"}").type(MediaType.APPLICATION_JSON).build();
         }
 
-        String oldMetadataFilename = File.separator+"metadata"+ File.separator + FileUtils.getMetadataFilename(filename);
-        String newMetadataFilename = File.separator+"metadata"+ File.separator + FileUtils.getMetadataFilename(fileDetail.getFileName());
+        String oldMetadataFilename = File.separator + "metadata" + File.separator
+            + FileUtils.getMetadataFilename(filename);
+        String newMetadataFilename = File.separator + "metadata" + File.separator
+            + FileUtils.getMetadataFilename(fileDetail.getFileName());
 
         if (FileUtils.renameFile(projectId, folderName, oldMetadataFilename, newMetadataFilename) == -1) {
           try {

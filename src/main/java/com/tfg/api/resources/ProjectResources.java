@@ -34,15 +34,23 @@ public class ProjectResources {
   }
 
   @GET
+  @Path("/user/{userEmail}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getUserProjects(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("userEmail") final String userEmail){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getUserProjects(token, userEmail);
+  }
+
+  @GET
   @Path("/search")
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchProjects(@HeaderParam("Authorization") final String authorizationHeader,
       @QueryParam("offset") final Long offset, @QueryParam("numberProjectsLoad") final Long numberProjectsLoad,
-      @QueryParam("query") @DefaultValue("") final String query,
-      @QueryParam("projectType") @DefaultValue("") final String projectTypes, @QueryParam("orderFilter")@DefaultValue("") final String orderFilter) {
+      @QueryParam("keyword") @DefaultValue("") final String keyword,
+      @QueryParam("type") @DefaultValue("") final String type, @QueryParam("order")@DefaultValue("") final String order) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    String[] projectTypesArray = projectTypes.equals("") ? null : projectTypes.split(",");
-    return ProjectController.searchProjects(token, offset, numberProjectsLoad, query, projectTypesArray, orderFilter);
+    String[] typesArray = type.equals("") ? null : type.split(",");
+    return ProjectController.searchProjects(token, offset, numberProjectsLoad, keyword, typesArray, order);
   }
 
   @POST
