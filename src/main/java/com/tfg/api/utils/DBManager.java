@@ -390,16 +390,16 @@ public class DBManager {
     return null;
   }
 
-  public int deleteProject(final Long projectId){
+  public int deleteProject(final Long projectId) {
     String query = "DELETE FROM project WHERE project_id=?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
       int numRows = statement.executeUpdate();
-      if(numRows>=0){
+      if (numRows >= 0) {
         return numRows;
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -414,7 +414,7 @@ public class DBManager {
       statement.setLong(1, projectId);
       statement.setString(2, userEmail);
       ResultSet result = statement.executeQuery();
-      if(result.next()){
+      if (result.next()) {
         return true;
       }
     } catch (SQLException e) {
@@ -445,18 +445,18 @@ public class DBManager {
     return -1;
   }
 
-  public int updateRateProject(final Long projectId, final String userEmail, final Float score){
+  public int updateRateProject(final Long projectId, final String userEmail, final Float score) {
     String query = "UPDATE score_project SET score = ? WHERE project_id = ? AND user_email =?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setFloat(1, score);
       statement.setLong(2, projectId);
       statement.setString(3, userEmail);
       int numRows = statement.executeUpdate();
-      if(numRows>=0){
+      if (numRows >= 0) {
         return numRows;
       }
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -722,18 +722,17 @@ public class DBManager {
     return false;
   }
 
-  public String getCommitIdFromVersion(final Long projectId, final String versionName){
+  public String getCommitIdFromVersion(final Long projectId, final String versionName) {
     String query = "SELECT version_commit FROM project_version WHERE project_id = ? AND name = ?;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
-      statement.setString(2,versionName);
+      statement.setString(2, versionName);
       ResultSet result = statement.executeQuery();
-      if(result.next()){
+      if (result.next()) {
         return result.getString("version_commit");
       }
-    }
-    catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();

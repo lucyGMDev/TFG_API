@@ -34,7 +34,7 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/searchProjects")
+  @Path("/search")
   @Produces(MediaType.APPLICATION_JSON)
   public Response searchProjects(@HeaderParam("Authorization") final String authorizationHeader,
       @QueryParam("offset") final Long offset, @QueryParam("numberProjectsLoad") final Long numberProjectsLoad,
