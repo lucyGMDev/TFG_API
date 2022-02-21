@@ -5,6 +5,9 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.AccessControlException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import javax.ws.rs.NotFoundException;
 
@@ -85,6 +88,24 @@ public class ProjectUtils {
     return fileList;
   }
 
+  public static FileList getFilesFromFolder(Long projectId, String folderName) throws Exception {
+    Dotenv dotenv = Dotenv.load();
+    String folderPath = dotenv.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName;
+    File folder = new File(folderPath);
+    File[] files = folder.listFiles();
+    FileList fileList = new FileList();
+    
+    for (File file : files) {
+      if (file.isDirectory())
+        continue;
+      FileData metadataFile = FileUtils.getMetadataFile(projectId, folderName, file.getName());
+      if (metadataFile.getIsPublic()) {
+        fileList.getFiles().add(metadataFile);
+      }
+    }
+    return fileList;
+  }
+
   public static Boolean projectTypesAreValid(String[] projectTypes) {
     for (String projectType : projectTypes) {
       try {
@@ -108,7 +129,8 @@ public class ProjectUtils {
   public static FolderMetadata getMetadataFolder(Long projectId, String folderName) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
-    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName + ".json";
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator
+        + folderName + ".json";
     try {
       BufferedReader reader = new BufferedReader(new FileReader(path));
       String currentLine;
@@ -143,8 +165,32 @@ public class ProjectUtils {
       if (!database.versionExistsOnProject(projectId, versionName)) {
         throw new NotFoundException();
       }
-      if (!database.versionExistsOnProject(projectId, versionName)
+      if (!database.versionIsPublic(projectId, versionName)
           && !ProjectUtils.userIsAuthor(projectId, userEmail)) {
+        throw new AccessControlException("You have not permission to access this version");
+      }
+      commitIdVersion = database.getCommitIdFromVersion(projectId, versionName);
+      if (commitIdVersion == null) {
+        throw new NullPointerException();
+      }
+    }
+    return commitIdVersion;
+  }
+
+  public static String getCommitIdVersion(final Long projectId, final String versionName)
+      throws NullPointerException, AccessControlException, NotFoundException {
+    String commitIdVersion;
+    DBManager database = new DBManager();
+    if (versionName.equals("")) {
+      commitIdVersion = database.getLastCommitProject(projectId);
+      if (commitIdVersion == null) {
+        throw new NullPointerException();
+      }
+    } else {
+      if (!database.versionExistsOnProject(projectId, versionName)) {
+        throw new NotFoundException();
+      }
+      if (!database.versionIsPublic(projectId, versionName)) {
         throw new AccessControlException("You have not permission to access this version");
       }
       commitIdVersion = database.getCommitIdFromVersion(projectId, versionName);

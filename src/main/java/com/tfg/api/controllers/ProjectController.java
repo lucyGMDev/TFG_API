@@ -24,7 +24,6 @@ import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
-import com.tfg.api.resources.ProjectResources;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.FileUtils;
 import com.tfg.api.utils.HistorialMessages;
@@ -105,7 +104,7 @@ public class ProjectController {
         .build();
   }
 
-  public static Response searchProjects(final String token, final Long offset, final Long numberCommentsGet,
+  public static Response searchProjects(final String token, final Long offset, final Long numberProjectsGet,
       final String keyword, final String[] typesArray, final String order) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
@@ -119,7 +118,7 @@ public class ProjectController {
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
-    if (offset < 0 || numberCommentsGet < 0) {
+    if (offset < 0 || numberProjectsGet < 0) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Offset and number of comments can not been negative\"}").build();
     }
@@ -135,14 +134,14 @@ public class ProjectController {
       switch (orderFilter) {
         case LAST_UPDATE:
           projects = typesArray != null
-              ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, keyword, typesArray)
-              : database.searchProject(userEmail, numberCommentsGet, offset, keyword);
+              ? database.searchProjectByTypes(userEmail, numberProjectsGet, offset, keyword, typesArray)
+              : database.searchProject(userEmail, numberProjectsGet, offset, keyword);
           break;
         case RATING:
           projects = typesArray != null
-              ? database.searchProjectByTypesOrderByRate(userEmail, numberCommentsGet, offset, keyword,
+              ? database.searchProjectByTypesOrderByRate(userEmail, numberProjectsGet, offset, keyword,
                   typesArray)
-              : database.searchProjectOrderByRate(userEmail, numberCommentsGet, offset, keyword);
+              : database.searchProjectOrderByRate(userEmail, numberProjectsGet, offset, keyword);
           break;
         default:
           return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
@@ -150,8 +149,8 @@ public class ProjectController {
       }
     } else {
       projects = typesArray != null
-          ? database.searchProjectByTypes(userEmail, numberCommentsGet, offset, keyword, typesArray)
-          : database.searchProject(userEmail, numberCommentsGet, offset, keyword);
+          ? database.searchProjectByTypes(userEmail, numberProjectsGet, offset, keyword, typesArray)
+          : database.searchProject(userEmail, numberProjectsGet, offset, keyword);
     }
 
     if (projects == null) {
@@ -593,6 +592,12 @@ public class ProjectController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
