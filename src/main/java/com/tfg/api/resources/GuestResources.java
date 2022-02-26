@@ -19,14 +19,14 @@ public class GuestResources {
   @GET
   @Path("/project/{projectId}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getProject(@PathParam("projectId") final Long projectId){
+  public Response getProject(@PathParam("projectId") final Long projectId) {
     return GuestController.getProject(projectId);
   }
 
   @GET
   @Path("/projects/user/{userEmail}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getUsersProjects(@PathParam("userEmail") final String userEmail){
+  public Response getUsersProjects(@PathParam("userEmail") final String userEmail) {
     return GuestController.getUserProjects(userEmail);
   }
 
@@ -40,14 +40,39 @@ public class GuestResources {
 
     String[] typesArray = type.equals("") ? null
         : Arrays.stream(type.split(",")).map(singleType -> singleType.trim()).toArray(String[]::new);
-    return GuestController.searchProjects(keyword,offset,numberProjects,typesArray,order);
+    return GuestController.searchProjects(keyword, offset, numberProjects, typesArray, order);
   }
 
   @GET
   @Path("/project/{projectId}/folder/{folderName}/getFiles")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getFilesFromFolder(@PathParam("projectId")final Long projectId, @PathParam("folder")final String folderName,@QueryParam("versionName")@DefaultValue("") final String versionName)
-  {
+  public Response getFilesFromFolder(@PathParam("projectId") final Long projectId,
+      @PathParam("folder") final String folderName,
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
     return GuestController.getFilesFromFolder(projectId, folderName, versionName);
+  }
+
+  @GET
+  @Path("/project/{projectId}/folder/{folderName}/{fileName}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getFileFromFolder(@PathParam("projectId") final Long projectId,
+      @PathParam("folderName") final String folderName, @PathParam("fileName") final String fileName,
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
+    return GuestController.getFileFromFolder(projectId, folderName, fileName, versionName);
+  }
+
+  @GET
+  @Path("/{projectId}/folder/{folderName}/file/{filename}/downloadFile")
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Response downloadFile(@PathParam("projectId") final Long projectId,@PathParam("folderName") final String folderName,@PathParam("filename") final String filename,
+      @QueryParam("versionName") @DefaultValue("") final String versionName) {
+    return GuestController.downloadFile(projectId,folderName,filename, versionName);
+  }
+
+  @GET
+  @Path("{projectId}/getVersions")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getVersions(@PathParam("projectId") final Long projectId) {
+    return GuestController.getVersions(projectId);
   }
 }

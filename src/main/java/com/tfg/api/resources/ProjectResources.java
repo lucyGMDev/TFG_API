@@ -240,4 +240,11 @@ public class ProjectResources {
     return ProjectController.rateProject(token, projectId, score);
   }
 
+  @GET
+  @Path("{projectId}/getHistorial")
+  public Response getHistorialProject(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @QueryParam("versionName")@DefaultValue("") final String versionName){
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getHistorialMessages(token, projectId, versionName);
+  }
+
 }

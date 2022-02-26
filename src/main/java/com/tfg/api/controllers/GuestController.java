@@ -11,14 +11,18 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 
 import com.google.gson.Gson;
+import com.tfg.api.data.FileData;
 import com.tfg.api.data.FileList;
 import com.tfg.api.data.FolderMetadata;
 import com.tfg.api.data.OrderFilter;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
+import com.tfg.api.data.VersionList;
 import com.tfg.api.utils.DBManager;
+import com.tfg.api.utils.FileUtils;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectUtils;
+import com.tfg.api.utils.VersionsUtils;
 
 import org.eclipse.jgit.api.errors.GitAPIException;
 
@@ -250,4 +254,210 @@ public class GuestController {
         .build();
   }
 
+  /**
+   * Get a public file from a folder, from a public project with a determinated
+   * version, if this version is public
+   * 
+   * @param projectId   of the project whose contains the file to get
+   * @param folderName  of the folder whose contains the file to get
+   * @param fileName    of the file to get
+   * @param versionName of the version wich is the file to get
+   * @return Response with the file to get
+   */
+  public static Response getFileFromFolder(final Long projectId, final String folderName, final String fileName,
+      final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
+          .build();
+    }
+
+    if (!ProjectUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
+    }
+
+    String commitIdVersion;
+    try {
+      commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName);
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project = null;
+
+    try {
+      project = new ProjectRepository(path);
+      project.changeVersion(commitIdVersion);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    try {
+      if (!FileUtils.fileIsPublic(projectId, folderName, fileName)) {
+        return Response.status(Response.Status.BAD_REQUEST)
+            .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
+            .build();
+      }
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while getting file\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    FileData metadataFile;
+    try {
+      metadataFile = FileUtils.getMetadataFile(projectId, folderName, fileName);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting file \"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    String lastVersionId = database.getLastCommitProject(projectId);
+    try {
+      project.changeVersion(lastVersionId);
+    } catch (GitAPIException e) {
+      e.printStackTrace();
+    }
+    return Response.status(Response.Status.OK).entity(jsonManager.toJson(metadataFile)).type(MediaType.APPLICATION_JSON)
+        .build();
+  }
+
+  /**
+   * Download a file from a project on a determinated version wich is public
+   * 
+   * @param projectId   of the project whose contains the file to download
+   * @param folderName  of the folder whose contains the file to download
+   * @param fileName    of the file to download
+   * @param versionName of the file to download
+   * @return Response with the file to download
+   */
+  public static Response downloadFile(final Long projectId, final String folderName, final String fileName,
+      final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+
+    if (!ProjectUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"The folder name is not valid\"}").build();
+    }
+
+    String commitIdVersion;
+    try {
+      commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName);
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You hve not permission to access this version\"}").build();
+    }
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project;
+    try {
+      project = new ProjectRepository(projectPath);
+      project.changeVersion(commitIdVersion);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error whule getting file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity(
+              "{\"message\":\"There are not any file with this name on this project and this folder on this version\"}")
+          .build();
+    }
+
+    try {
+      if (!FileUtils.fileIsPublic(projectId, folderName, fileName)) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    String filePath = projectPath + File.separator + folderName + File.separator + fileName;
+    File file = new File(filePath);
+
+    return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object) file)
+        .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
+  }
+
+  public static Response getVersions(final Long projectId){
+    Gson jsonManager = new Gson();
+    DBManager database = new DBManager();
+    
+
+    if (projectId == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Project id is required\"}").build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST)
+          .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
+          .build();
+    }
+
+    VersionList versions;
+    try {
+      versions = VersionsUtils.getVersionsProject(projectId);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while getting versions\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions))
+        .build();
+  }
 }

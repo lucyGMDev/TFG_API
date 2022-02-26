@@ -72,6 +72,14 @@ public class FileUtils {
     return true;
   }
 
+  public static Boolean fileIsPublic(Long projectId, String directoryName, String fileName) throws Exception{
+    FileData metadataFile = getMetadataFile(projectId,directoryName,fileName);
+    if(metadataFile == null){
+      throw new Exception("Error getting metadata file");
+    }
+    return metadataFile.getIsPublic();
+  }
+
   
   /** 
    * @param projectId

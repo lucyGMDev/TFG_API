@@ -21,7 +21,7 @@ public final class App {
 	
 	private static final String BASE_URI = Dotenv.load().get("API_URL");
 
-	private static HttpServer createConection() throws URISyntaxException {
+	public static HttpServer createConection() throws URISyntaxException {
 		ResourceConfig rc = new ResourceConfig().packages("com.tfg.api.resources");
 		rc.register(new CorsFilter());
 		rc.register(MultiPartFeature.class);

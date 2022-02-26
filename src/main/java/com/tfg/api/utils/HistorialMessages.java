@@ -3,40 +3,107 @@ package com.tfg.api.utils;
 import java.util.Date;
 
 public class HistorialMessages {
-  public enum operations {
-    UploadFile, RemoveFile, UpdateFile, CreateProject, UpdateProject, CoauthorAdded, CoauthorRemoved
+  public enum Operations {
+    UploadFile, RemoveFile, UpdateFile, CreateProject, UpdateProject, CoauthorAdded, CoauthorRemoved, CreateVerion
   }
 
-  public static String createProject(String userEmail) {
-    return String.format("CreateProject: %s create project:%s", userEmail, new Date().toString());
+  public static final String ACTOR = "ACTOR";
+  public static final String OBJECT = "OBJECT";
+  public static final String DATE = "DATE";
+  public static final String FOLDER = "FOLDER";
+
+  private Operations operation;
+  private String actor;
+  private String object;
+  private Date changeDate;
+  private String folder;
+
+  public HistorialMessages() {
   }
 
-  public static String updateProject(String userEmail) {
-    return String.format("UpdateProject: %s update project:%s", userEmail, new Date().toString());
+  public HistorialMessages(Operations operation, String actor, String objetc, Date changeDate) {
+    this.operation = operation;
+    this.actor = actor;
+    this.object = objetc;
+    this.changeDate = changeDate;
   }
 
-  public static String userAddFile(String userEmail, String fileName, String folderName) {
-    return String.format("UploadFile: %s upload %s on %s,%s", userEmail, fileName, folderName, new Date().toString());
+  public HistorialMessages(Operations operation, String actor, Date changeDate) {
+    this.operation = operation;
+    this.actor = actor;
+    this.changeDate = changeDate;
   }
 
-  public static String userRemoveFile(String userEmail, String fileName, String folderName) {
-    return String.format("RemoveFile: %s remove %s on %s,%s", userEmail, fileName, folderName, new Date().toString());
+  public Operations getOperation() {
+    return operation;
   }
 
-  public static String userUpdateFile(String userEmail, String fileName, String folderName) {
-    return String.format("UpdateFile: %s update %s on %s,%s", userEmail, fileName, folderName, new Date().toString());
+  public void setOperation(Operations operation) {
+    this.operation = operation;
   }
 
-
-  public static String addCoauthor(String userEmail, String newCoauthor) {
-    return String.format("CoauthorAdded: %s add %s;%s", userEmail, newCoauthor, new Date().toString());
+  public String getActor() {
+    return actor;
   }
 
-  public static String removeCoauthor(String userEmail, String oldCoauthor) {
-    return String.format("CoauthorRemoved: %s remove %s;%s", userEmail, oldCoauthor, new Date().toString());
+  public void setActor(String actor) {
+    this.actor = actor;
   }
 
-  public static String createVersion(String userEmail, String versionName){
-    return String.format("VersionName: %s create version %s;%s",userEmail,versionName,new Date().toString());
+  public String getObject() {
+    return object;
   }
+
+  public void setObject(String object) {
+    this.object = object;
+  }
+
+  public Date getChangeDate() {
+    return changeDate;
+  }
+
+  public void setChangeDate(Date changeDate) {
+    this.changeDate = changeDate;
+  }
+
+  public String getFolder() {
+    return folder;
+  }
+
+  public void setFolder(String folder) {
+    this.folder = folder;
+  }
+
+  @Override
+  public String toString() {
+    String historialMessage="";
+    if(operation.equals(Operations.CreateProject)){
+      historialMessage= String.format("%s has created the project on %s", this.actor, this.changeDate);
+    }
+    if(operation.equals(Operations.CoauthorAdded)){
+      historialMessage = String.format("%s has added %s to the project on %s", this.actor, this.object,this.changeDate);
+    }
+    if(operation.equals(Operations.UpdateProject)){
+      historialMessage = String.format("%s has update the project on %s", this.actor, this.changeDate);
+    }
+    if(operation.equals(Operations.CoauthorRemoved)){
+      historialMessage = String.format("%s has removed %s from the project on %s",this.actor, this.object, this.changeDate);
+    }
+    if(operation.equals(Operations.UploadFile)){
+      historialMessage = String.format("%s has added the file %s to the project, on the folder %s on %s", this.actor, this.object, this.folder, this.changeDate);
+    }
+    if(operation.equals(Operations.UpdateFile)){
+      historialMessage = String.format("%s has updated file %s on the folder %s on %s",this.actor, this.object, this.folder, this.changeDate);
+    }
+    if(operation.equals(Operations.RemoveFile)){
+      historialMessage = String.format("%s has removed the file %s from the folder %s on %s",this.actor, this.object, this.folder, this.changeDate);
+    }
+    if(operation.equals(Operations.CreateVerion)){
+      historialMessage = String.format("%s has created the version %s on this project on %s",this.actor, this.object, this.changeDate);
+    }
+
+
+    return historialMessage;
+  }
+
 }

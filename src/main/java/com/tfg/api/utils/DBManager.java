@@ -7,6 +7,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
+
 import com.tfg.api.data.Comment;
 import com.tfg.api.data.ListComments;
 import com.tfg.api.data.Project;
@@ -1124,6 +1126,25 @@ public class DBManager {
     }
 
     return -1;
+  }
+
+  public ArrayList<String> getHistorialProject(final Long projectId){
+    String query = "SELECT change_message FROM project_changes WHERE project_id=? AND version_name IS NULL ORDER BY change_date DESC;";
+    try(Connection conn = DriverManager.getConnection(url, username, password);
+    PreparedStatement statement = conn.prepareStatement(query)){
+      statement.setLong(1, projectId);
+      ResultSet result = statement.executeQuery();
+      ArrayList<String> historial = new ArrayList<String>();
+      while(result.next()){
+        historial.add(result.getString("change_message"));
+      }
+      return historial;
+    }catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
   }
 
 }

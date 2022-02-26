@@ -5,9 +5,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.security.AccessControlException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.stream.Collectors;
+
 
 import javax.ws.rs.NotFoundException;
 
@@ -94,6 +92,7 @@ public class ProjectUtils {
     File folder = new File(folderPath);
     File[] files = folder.listFiles();
     FileList fileList = new FileList();
+    
     
     for (File file : files) {
       if (file.isDirectory())
