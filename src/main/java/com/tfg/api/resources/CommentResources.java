@@ -17,19 +17,23 @@ import com.tfg.api.data.bodies.CommentBody;
 
 @Path("/comment")
 public class CommentResources {
-  
+
   @GET
   @Path("/{projectId}/getComments")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getComments(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @QueryParam("offset") final Long offset, @QueryParam("numberCommentsLoad") final Long numberCommentsLoad)
-  {
-    String token = authorizationHeader.substring("Bearer".length()).trim();
-    return CommentController.getComments(token, projectId, offset,numberCommentsLoad);
+  public Response getComments(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @QueryParam("offset") final Long offset,
+      @QueryParam("numberCommentsLoad") final Long numberCommentsLoad) {
+    String token = authorizationHeader != null ? authorizationHeader.substring("Bearer".length()).trim() : "";
+    return CommentController.getComments(token, projectId, offset, numberCommentsLoad);
   }
+
   @GET
   @Path("/{projectId}/getResponses/{commentId}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getCommentResponses(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("commentId") final String commentId, @QueryParam("offset") final Long offset, @QueryParam("numberCommentsLoad") final Long numberCommentsLoad){
+  public Response getCommentResponses(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("commentId") final String commentId,
+      @QueryParam("offset") final Long offset, @QueryParam("numberCommentsLoad") final Long numberCommentsLoad) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return CommentController.getCommentResponses(token, projectId, commentId, offset, numberCommentsLoad);
   }
@@ -38,8 +42,8 @@ public class CommentResources {
   @Path("/postComment")
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
-  public Response postComment(@HeaderParam("Authorization") final String authorizationHeader, final CommentBody comment)
-  {
+  public Response postComment(@HeaderParam("Authorization") final String authorizationHeader,
+      final CommentBody comment) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return CommentController.postComment(token, comment);
   }
@@ -47,8 +51,8 @@ public class CommentResources {
   @DELETE
   @Path("/deleteComment/{projectId}/{commentId}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response deleteComment(@HeaderParam("Authorization") final String authorizationHeader, @PathParam("projectId") final Long projectId, @PathParam("commentId") final String commentId)
-  {
+  public Response deleteComment(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("commentId") final String commentId) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return CommentController.deleteComment(token, projectId, commentId);
   }

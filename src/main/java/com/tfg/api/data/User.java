@@ -8,16 +8,18 @@ public class User {
   private String name;
   private String lastName;
   private Date createdDate;
+  private String pictureUrl;
 
   public User() {
   }
 
-  public User(String email, String username, String name, String lastName, Date createdDate) {
+  public User(String email, String username, String name, String lastName, Date createdDate, String pictureUrl) {
     this.email = email;
     this.username = username;
     this.name = name;
     this.lastName = lastName;
     this.createdDate = createdDate;
+    this.pictureUrl = pictureUrl;
   }
 
   public String getEmail() {
@@ -58,6 +60,14 @@ public class User {
 
   public void setCreatedDate(Date createdDate) {
     this.createdDate = createdDate;
+  }
+
+  public String getPictureUrl() {
+    return pictureUrl;
+  }
+
+  public void setPictureUrl(String pictureUrl) {
+    this.pictureUrl = pictureUrl;
   }
 
 }

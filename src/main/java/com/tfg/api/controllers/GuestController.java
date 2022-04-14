@@ -1,10 +1,16 @@
 package com.tfg.api.controllers;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.security.AccessControlException;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.MediaType;
@@ -20,6 +26,7 @@ import com.tfg.api.data.ProjectList;
 import com.tfg.api.data.VersionList;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.FileUtils;
+import com.tfg.api.utils.FolderUtils;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectUtils;
 import com.tfg.api.utils.VersionsUtils;
@@ -29,7 +36,6 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class GuestController {
-
   /**
    * Get all data about a project who is public
    * 
@@ -41,12 +47,12 @@ public class GuestController {
     Gson jsonManager = new Gson();
 
     if (!database.projectExitsById(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.NOT_FOUND).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
 
     if (!database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to acces this project\"}").build();
     }
 
@@ -58,6 +64,151 @@ public class GuestController {
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(userProject))
         .build();
+  }
+
+  /**
+   * Esta funcion descarga todos los elementos publicos de un proyecto determinado
+   * para una version dada si esta es publica
+   * 
+   * @param projectId   Identificador del proyecto a descargar
+   * @param versionName Version del proyecto a descargar
+   * @return Devuelve una response con el proyecto a descargar
+   */
+  public static Response downloadProject(final Long projectId, final String versionName) {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this project\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && !database.versionIsPublic(projectId, versionName)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this version of the project\"}").build();
+    }
+
+    String folderPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    File projectFolder = new File(folderPath);
+    ProjectRepository repository;
+    String versionId = versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+    try {
+      repository = new ProjectRepository(folderPath);
+      repository.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading project\"}").build();
+    }
+    Arrays.stream(projectFolder.listFiles()).filter(file -> file.getName().matches(".*\\.zip$"))
+        .forEach((File file) -> {
+          if (!file.delete()) {
+            throw new RuntimeException();
+          }
+        });
+    Project project = database.getProjectById(projectId);
+    String projectZipPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
+        + File.separator + project.getName() + ".zip";
+
+    try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(projectZipPath))) {
+      List<File> folders = Arrays.stream(projectFolder.listFiles())
+          .filter(file -> FolderUtils.folderNameIsValid(file.getName()) && file.isDirectory())
+          .collect(Collectors.toList());
+      try {
+        folders.stream().filter((File file) -> {
+          FolderMetadata folderMetadata;
+          try {
+            folderMetadata = FolderUtils.getMetadataFolder(projectId, file.getName());
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+          if (folderMetadata.getIsPublic()) {
+            folderMetadata.incrementNumberDownloads();
+            try {
+              String version = repository.createMetadataFolder(jsonManager.toJson(folderMetadata), file.getName());
+              if (versionName.equals("")
+                  || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+                database.addCommitProject(projectId, version);
+              } else {
+                database.updateVersionCommit(projectId, versionName, version);
+              }
+            } catch (IOException | GitAPIException e) {
+              throw new RuntimeException(e);
+            }
+            return true;
+          }
+          return false;
+        }).forEach((File directory) -> {
+          try {
+            FileList files = FolderUtils.getFilesFromFolder(projectId, directory.getName());
+            final String directoryName = directory.getName();
+            files.getFiles().stream().filter(file -> file.getIsPublic()).forEach(
+                (FileData fileData) -> {
+                  File file = new File(
+                      environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator
+                          + fileData.getDirectoryName() + File.separator + fileData.getFileName());
+                  try {
+                    zipOutputStream.putNextEntry(new ZipEntry(directoryName + File.separator + file.getName()));
+                    FileInputStream fis = new FileInputStream(file);
+                    byte[] fileBytes = new byte[1024];
+                    int length;
+                    while ((length = fis.read(fileBytes)) >= 0) {
+                      zipOutputStream.write(fileBytes, 0, length);
+                    }
+                    fis.close();
+                    zipOutputStream.closeEntry();
+                  } catch (IOException e) {
+                    throw new RuntimeException(e);
+                  }
+                });
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
+      } catch (RuntimeException e) {
+        try {
+          repository.changeVersion(versionId);
+          if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+            database.addCommitProject(projectId, versionId);
+          } else {
+            database.updateVersionCommit(projectId, versionName, versionId);
+          }
+        } catch (GitAPIException e1) {
+          e1.printStackTrace();
+        }
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while downloading project\"}").build();
+      }
+    } catch (IOException e) {
+      try {
+        repository.changeVersion(versionId);
+        if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+          database.addCommitProject(projectId, versionId);
+        } else {
+          database.updateVersionCommit(projectId, versionName, versionId);
+        }
+      } catch (GitAPIException e1) {
+        e1.printStackTrace();
+      }
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading project\"}").build();
+    }
+
+    File zipFile = new File(projectZipPath);
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_OCTET_STREAM)
+        .header("Content-Disposition", String.format("attachment; filename=\"%s.zip\"", project.getName()))
+        .entity((Object) zipFile).build();
   }
 
   /**
@@ -106,6 +257,15 @@ public class GuestController {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
 
+    if (offset == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Offset is required\"}").build();
+    }
+    if (numberProjectsGet == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Number Projects Get is required\"}").build();
+    }
+
     if (offset < 0 || numberProjectsGet < 0) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Offset and number of comments can not been negative\"}").build();
@@ -152,6 +312,59 @@ public class GuestController {
   }
 
   /**
+   * Get a list with all items of a proyect on a determinated version, if an item
+   * is private then dont send information about it
+   * 
+   * @param projectId   Id of the project
+   * @param versionName Name of the project version to retrieve items
+   * @return Response with a list with items to get
+   */
+  public static Response getItems(final Long projectId, final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this project\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && !database.versionIsPublic(projectId, versionName)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this version of the project\"}").build();
+    }
+
+    String versionId = versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+    String repositoryPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    try {
+      ProjectRepository repository = new ProjectRepository(repositoryPath);
+      repository.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+    }
+
+    ArrayList<FolderMetadata> itemsList = new ArrayList<FolderMetadata>();
+    try {
+      itemsList = FolderUtils.getListItemsCensured(projectId);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting items from repository\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(itemsList))
+        .build();
+  }
+
+  /**
    * Get public files from a folder from a public project from a determinated
    * version wich must be public
    * 
@@ -191,7 +404,7 @@ public class GuestController {
           .entity("{\"message\":\"You hve not permission to access this project\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
@@ -208,9 +421,21 @@ public class GuestController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting files\"}").build();
     }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this folder\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting files\"}").build();
+    }
+
     FileList files;
     try {
-      files = ProjectUtils.getFilesFromFolder(projectId, folderName);
+      files = FolderUtils.getFilesFromFolder(projectId, folderName);
     } catch (Exception e) {
       e.printStackTrace();
       try {
@@ -223,19 +448,10 @@ public class GuestController {
     }
 
     try {// Una vez que he obtenido los archivos, añado la visita
-      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
-          + File.separator + folderName
-          + ".json";
-      File folderMetadataFile = new File(folderMetadataPath);
-      FolderMetadata metadata;
-      if (folderMetadataFile.exists()) {// TODO: Posiblemente sea mejor crear los metadatos cuando se crean las carpetas
-        metadata = ProjectUtils.getMetadataFolder(projectId, folderName);
-      } else {
-        metadata = new FolderMetadata();
-      }
+      FolderMetadata metadata = FolderUtils.getMetadataFolder(projectId, folderName);
       metadata.incrementNumberViews();
       String commitId = project.createMetadataFolder(jsonManager.toJson(metadata), folderName);
-      if (!versionName.equals("")) {
+      if (!versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
         database.updateVersionCommit(projectId, versionName, commitId);
       } else {
         database.addCommitProject(projectId, commitId);
@@ -252,6 +468,240 @@ public class GuestController {
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(files))
         .build();
+  }
+
+  /**
+   * Download all public files from a folder
+   * 
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param versionName Name of the version to download
+   * @return Response with a zip with all public files
+   */
+  public static Response downloadFolderFromProjet(final Long projectId, final String folderName,
+      final String versionName) {
+    Gson jsonManager = new Gson();
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permissions to access this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"This folde name is not a valid folder name\"}").build();
+    }
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project;
+    String commitId = versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+    try {
+      project = new ProjectRepository(projectPath);
+      project.changeVersion(commitId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading folder\"}").build();
+    }
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have no permissions to access this folder\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading folder\"}").build();
+    }
+    String folderZipPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
+        + File.separator + folderName + ".zip";
+
+    try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(folderZipPath))) {
+      File folder = new File(projectPath + File.separator + folderName);
+      List<File> filesDownload = Arrays.asList(folder.listFiles()).stream().filter(singleFile -> {
+        if (singleFile.isDirectory()) {
+          return false;
+        }
+        try {
+          if (!FileUtils.getMetadataFile(projectId, folderName, singleFile.getName()).getIsPublic()) {
+            return false;
+          }
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+        return true;
+      }).collect(Collectors.toList());
+      filesDownload.forEach(fileDownload -> {
+        try {
+          zipOutputStream.putNextEntry(new ZipEntry(fileDownload.getName()));
+          FileInputStream fis = new FileInputStream(fileDownload);
+          byte[] fileBytes = new byte[1024];
+          int length;
+          while ((length = fis.read(fileBytes)) >= 0) {
+            zipOutputStream.write(fileBytes, 0, length);
+          }
+          fis.close();
+          zipOutputStream.closeEntry();
+        } catch (IOException e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+        FileData fileMetadata;
+        try {
+          fileMetadata = FileUtils.getMetadataFile(projectId, folderName, fileDownload.getName());
+          fileMetadata.incrementNumberDownloads();
+          project.createMetadataFile(jsonManager.toJson(fileMetadata), folderName, fileDownload.getName());
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      });
+      FolderMetadata folderMetadata;
+      try {
+        folderMetadata = FolderUtils.getMetadataFolder(projectId, folderName);
+        folderMetadata.incrementNumberDownloads();
+        String newCommitId = project.createMetadataFolder(jsonManager.toJson(folderMetadata), folderName);
+
+        if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+          database.addCommitProject(projectId, newCommitId);
+        } else {
+          database.updateVersionCommit(projectId, versionName, newCommitId);
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
+        throw new RuntimeException(e);
+      }
+
+    } catch (IOException | RuntimeException e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading folder\"}").build();
+    }
+
+    File zipFile = new File(folderZipPath);
+
+    return Response.status(Response.Status.OK)
+        .header("Content-Disposition", String.format("attachment; filename=\"%s.zip\"", folderName))
+        .type(MediaType.APPLICATION_OCTET_STREAM).entity((Object) zipFile)
+        .build();
+  }
+
+  public static Response downloadFilesSelectedFromFolder(final Long projectId, final String folderName,
+      final String versionName, final List<String> filesSelectedNames) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"This folder is not valid\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && !database.versionExistsOnProject(projectId, versionName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+
+    }
+
+    String commitId = versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository repository;
+    try {
+      repository = new ProjectRepository(projectPath);
+      repository.changeVersion(commitId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading files\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .type(MediaType.APPLICATION_JSON).entity("{\"message\": You have not permission to access this folder}")
+            .build();
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\": \"Error while downloading files\"}").build();
+    }
+    String folderZipPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
+        + File.separator + folderName + ".zip";
+    try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(folderZipPath))) {
+      filesSelectedNames.stream()
+          .filter(fileName -> {
+            try {
+              return FileUtils.fileExists(projectId, folderName, fileName)
+                  && FileUtils.fileIsPublic(projectId, folderName, fileName);
+            } catch (Exception e) {
+              e.printStackTrace();
+              throw new RuntimeException(e);
+            }
+          }).map(fileName -> new File(projectPath + File.separator + folderName + File.separator + fileName))
+          .forEach(fileDownload -> {
+            try {
+              zipOutputStream.putNextEntry(new ZipEntry(fileDownload.getName()));
+              FileInputStream fis = new FileInputStream(fileDownload);
+              byte[] fileBytes = new byte[1024];
+              int length;
+              while ((length = fis.read(fileBytes)) >= 0) {
+                zipOutputStream.write(fileBytes, 0, length);
+              }
+              fis.close();
+              zipOutputStream.closeEntry();
+            } catch (IOException e) {
+              throw new RuntimeException(e);
+            }
+
+            FileData fileMetadata;
+            try {
+              fileMetadata = FileUtils.getMetadataFile(projectId, folderName, fileDownload.getName());
+              fileMetadata.incrementNumberDownloads();
+              String newVersionId = repository.createMetadataFile(jsonManager.toJson(fileMetadata), folderName,
+                  fileDownload.getName());
+              if (versionName.equals("")
+                  || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+                database.addCommitProject(projectId, newVersionId);
+              } else {
+                database.updateVersionCommit(projectId, versionName, newVersionId);
+              }
+            } catch (Exception e) {
+              e.printStackTrace();
+              throw new RuntimeException(e);
+            }
+          });
+    } catch (IOException | RuntimeException e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading file\"}").build();
+    }
+
+    File zipFile = new File(folderZipPath);
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_OCTET_STREAM).header("Content-Disposition",
+        String.format("attachment; filename=\"%s.zip\"", folderName)).entity((Object) zipFile).build();
   }
 
   /**
@@ -281,7 +731,7 @@ public class GuestController {
           .build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
@@ -310,6 +760,17 @@ public class GuestController {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this project\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file from folder\"}").build();
     }
 
     if (!FileUtils.fileExists(projectId, folderName, fileName)) {
@@ -371,7 +832,7 @@ public class GuestController {
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"The folder name is not valid\"}").build();
     }
@@ -401,6 +862,17 @@ public class GuestController {
           .entity("{\"message\":\"Error whule getting file\"}").build();
     }
 
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permissions to download this file\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file to download\"}").build();
+    }
+
     if (!FileUtils.fileExists(projectId, folderName, fileName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity(
@@ -426,10 +898,15 @@ public class GuestController {
         .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
   }
 
-  public static Response getVersions(final Long projectId){
+  /**
+   * Get all publics version of a project
+   * 
+   * @param projectId Id of the project to get versions
+   * @return Response with public versions
+   */
+  public static Response getVersions(final Long projectId) {
     Gson jsonManager = new Gson();
     DBManager database = new DBManager();
-    
 
     if (projectId == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)

@@ -4,25 +4,20 @@ public class ProjectBody {
   private String name;
   private String description;
   private Boolean isPublic;
-  private String owner;
   private String[] coauthors;
   private String[] type;
+
   public ProjectBody() {
   }
 
-  
-
-  public ProjectBody(String name, String description, Boolean isPublic, String owner, String[] coauthors,
+  public ProjectBody(String name, String description, Boolean isPublic, String[] coauthors,
       String[] type) {
     this.name = name;
     this.description = description;
     this.isPublic = isPublic;
-    this.owner = owner;
     this.coauthors = coauthors;
     this.type = type;
   }
-
-
 
   public String getName() {
     return name;
@@ -48,15 +43,6 @@ public class ProjectBody {
     this.isPublic = isPublic;
   }
 
-  public String getOwner() {
-    if(owner == null) return "";
-    return owner;
-  }
-
-  public void setOwner(String owner) {
-    this.owner = owner;
-  }
-
   public String[] getCoauthors() {
     return coauthors;
   }
@@ -65,18 +51,12 @@ public class ProjectBody {
     this.coauthors = coauthors;
   }
 
-
-
   public String[] getType() {
     return type;
   }
 
-
-
   public void setType(String[] type) {
     this.type = type;
   }
-
-  
 
 }

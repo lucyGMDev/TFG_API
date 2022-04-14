@@ -15,6 +15,19 @@ import com.tfg.api.utils.ProjectUtils;
 
 public class CommentController {
 
+  /***
+   * A function to get a list of comments from a project
+   * 
+   * @param token              JSON Web Token with user email for authentication
+   *                           or empty, if want to get comments from a public
+   *                           project
+   * @param projectId          The id of the project
+   * @param offset             The number of comments since want to get comments.
+   *                           Have to be more or equals to 0
+   * @param numberCommentsLoad Number of comments to load. Have to be more or
+   *                           equals 0
+   * @return A response with a list of comments on JSON format
+   */
   public static Response getComments(final String token, final Long projectId, final Long offset,
       final Long numberCommentsLoad) {
     DBManager database = new DBManager();
@@ -22,7 +35,7 @@ public class CommentController {
     JwtUtils jwtManager = new JwtUtils();
     String userEmail;
     try {
-      userEmail = jwtManager.getUserEmailFromJwt(token);
+      userEmail = token.equals("") ? token : jwtManager.getUserEmailFromJwt(token);
     } catch (Exception e) {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
@@ -33,12 +46,30 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Project id is required\"}").build();
     }
+    if (offset == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Offset is required\"}").build();
+    }
+
+    if (offset < 0) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Offset have to be more or equals than 0\"}").build();
+    }
+
+    if (numberCommentsLoad == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Number comments to load is required\"}").build();
+    }
+
+    if (numberCommentsLoad < 0) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Number comments to load have to be more or equals than 0\"}").build();
+    }
 
     if (!database.projectExitsById(projectId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
-
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
@@ -54,40 +85,62 @@ public class CommentController {
         .build();
   }
 
-  public static Response getCommentResponses(String token, final Long projectId, final String commentId, final Long offset, final Long numberCommentsLoad)
-  {
+  /**
+   * A function to get a response list of a comment
+   * 
+   * @param token              JSONWebToken with user email
+   * @param projectId          Identifier of a project
+   * @param commentId          Identifier of a comment
+   * @param offset             Number of comments to start to retrieve comments
+   * @param numberCommentsLoad Number of comments to retrieve
+   * @return A response with a list of response on JSON format
+   */
+  public static Response getCommentResponses(String token, final Long projectId, final String commentId,
+      final Long offset, final Long numberCommentsLoad) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();
     String userEmail;
     try {
       userEmail = jwtManager.getUserEmailFromJwt(token);
-    }catch (Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error with JWT\"}").build();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
-    if(!database.projectExitsById(projectId)){
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"There are not any project with this ID\"}").build();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this ID\"}").build();
     }
 
-    if(!database.commentExistsInProject(commentId, projectId)){
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"There are any comment on this project with this ID\"}").build();
+    if (!database.commentExistsInProject(commentId, projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any comment on this project with this ID\"}").build();
     }
 
-    if(!ProjectUtils.userCanAccessProject(projectId, userEmail))
-    {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"You can not access this project\"}").build();
+    if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You can not access this project\"}").build();
     }
 
     ListComments comments = database.getCommentResponses(projectId, commentId, offset, numberCommentsLoad);
-    if(comments==null)
-    {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error while getting comments\"}").build();
+    if (comments == null) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting comments\"}").build();
     }
 
-    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(comments)).build();
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(comments))
+        .build();
   }
+
+  /**
+   * A function to post a comment on a project, or response to a comment
+   * 
+   * @param token   JWToken with user email who post the comment
+   * @param comment A json with comment body
+   * @return A response with the comment posted
+   */
   public static Response postComment(final String token, final CommentBody comment) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
@@ -127,6 +180,12 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You can not response to a comment who does not exist\"}").build();
     }
+    if (comment.getResponseCommentId() != null) {
+      if (database.getCommentById(comment.getResponseCommentId()).getResponseCommentId() != null) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You can no response to a comment wich is a response\"}").build();
+      }
+    }
 
     if (!ProjectUtils.userCanAccessProject(comment.getProjectId(), userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
@@ -150,6 +209,15 @@ public class CommentController {
         .entity(jsonManager.toJson(postedComment)).build();
   }
 
+  /**
+   * A functon to delete a comment from a project (only owners of projects can
+   * delete comments)
+   * 
+   * @param token     JSONWebToken with user email who want to delete a comment
+   * @param projectId Identifier of the project
+   * @param commentId Identifier of the comment
+   * @return
+   */
   public static Response deleteComment(final String token, final Long projectId, final String commentId) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();

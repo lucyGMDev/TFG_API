@@ -25,6 +25,8 @@ public class DBManager {
   private String username;
   private String password;
 
+  // TODO: Añadir en las busquedas el username
+
   public DBManager() {
     Dotenv dotenv = Dotenv.load();
     url = dotenv.get("DB_URL");
@@ -50,6 +52,24 @@ public class DBManager {
     return false;
   }
 
+  public Boolean userExistsByUsername(String userName) {
+    String query = "SELECT * FROM users WHERE username = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userName);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return true;
+      }
+      return false;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
   public User insertUser(String email) {
     String query = "INSERT INTO users (email, created_date) VALUES (?,CURRENT_DATE)";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -60,7 +80,7 @@ public class DBManager {
         ResultSet result = statement.getGeneratedKeys();
         if (result.next()) {
           User user = new User(result.getString("email"), result.getString("username"), result.getString("firstname"),
-              result.getString("lastname"), result.getDate("created_date"));
+              result.getString("lastname"), result.getDate("created_date"), result.getString("picture_url"));
           return user;
         }
       }
@@ -72,6 +92,27 @@ public class DBManager {
     return null;
   }
 
+  public int updateUser(User user) {
+    String query = "UPDATE users SET username = ? , firstname = ? , lastname = ?, picture_url = ? WHERE email = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, user.getUsername());
+      statement.setString(2, user.getName());
+      statement.setString(3, user.getLastName());
+      statement.setString(4, user.getPictureUrl());
+      statement.setString(5, user.getEmail());
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return numRows;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
+
   public User getUserByEmail(String email) {
     String query = "SELECT * FROM users WHERE email = ?";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -80,7 +121,7 @@ public class DBManager {
       ResultSet result = statement.executeQuery();
       if (result.next()) {
         User user = new User(result.getString("email"), result.getString("username"), result.getString("firstname"),
-            result.getString("lastname"), result.getDate("created_date"));
+            result.getString("lastname"), result.getDate("created_date"), result.getString("picture_url"));
         return user;
       }
     } catch (SQLException e) {
@@ -139,7 +180,7 @@ public class DBManager {
   }
 
   public int addCoauthorToProject(Long projectId, String coauthorEmail) {
-    String query = "INSERT INTO coauthor_project (coauthor_email, project_id) VALUES (?,?);";
+    String query = "INSERT INTO coauthor_project (coauthor_username, project_id) VALUES (?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, coauthorEmail);
@@ -157,7 +198,7 @@ public class DBManager {
   }
 
   public String[] getProjectCoauthors(Long projectId) {
-    String query = "SELECT coauthor_email FROM coauthor_project WHERE project_id=?;";
+    String query = "SELECT coauthor_username FROM coauthor_project WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, ResultSet.TYPE_SCROLL_INSENSITIVE,
             ResultSet.CONCUR_READ_ONLY);) {
@@ -222,7 +263,7 @@ public class DBManager {
   }
 
   public ProjectList getProjectsFromUser(String userEmail) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON p.project_id = cp.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE cp.coauthor_email = ? GROUP BY p.project_id;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON p.project_id = cp.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE cp.coauthor_username = ? GROUP BY p.project_id;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, userEmail);
@@ -248,14 +289,14 @@ public class DBManager {
 
   public ProjectList searchProject(final String userEmail, final Long numberCommentsGet, final Long offset,
       final String keyword) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_username= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, userEmail);
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
-      statement.setString(4, keyword.toLowerCase());
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
+      statement.setString(4, '%' + keyword.toLowerCase() + '%');
       statement.setLong(5, numberCommentsGet);
       statement.setLong(6, offset);
       ResultSet result = statement.executeQuery();
@@ -281,14 +322,14 @@ public class DBManager {
 
   public ProjectList searchProjectByTypes(final String userEmail, final Long numberCommentsGet, final Long offset,
       final String keyword, final String[] projectTypes) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') AND (? && p.type) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_username= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) AND (? && p.type) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, userEmail);
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
-      statement.setString(4, keyword.toLowerCase());
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
+      statement.setString(4, '%' + keyword.toLowerCase() + '%');
       Array typesArray = conn.createArrayOf("text", projectTypes);
       statement.setArray(5, typesArray);
       statement.setLong(6, numberCommentsGet);
@@ -317,14 +358,14 @@ public class DBManager {
 
   public ProjectList searchProjectOrderByRate(final String userEmail, final Long numberCommentsGet, final Long offset,
       final String keyword) {
-    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_username= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(sql)) {
       statement.setString(1, userEmail);
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
-      statement.setString(4, keyword.toLowerCase());
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
+      statement.setString(4, '%' + keyword.toLowerCase() + '%');
       statement.setLong(5, numberCommentsGet);
       statement.setLong(6, offset);
       ResultSet result = statement.executeQuery();
@@ -351,14 +392,14 @@ public class DBManager {
   public ProjectList searchProjectByTypesOrderByRate(final String userEmail, final Long numberCommentsGet,
       final Long offset,
       final String keyword, final String[] projectTypes) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_email= ?) AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE (p.public = true OR cp.coauthor_username= ?) AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, userEmail);
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
-      statement.setString(4, keyword.toLowerCase());
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
+      statement.setString(4, '%' + keyword.toLowerCase() + '%');
       Array typesArray = conn.createArrayOf("text", projectTypes);
       statement.setArray(5, typesArray);
       statement.setLong(6, numberCommentsGet);
@@ -387,13 +428,13 @@ public class DBManager {
 
   public ProjectList searchProjectPublics(final Long numberCommentsGet, final Long offset,
       final String keyword) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, keyword.toLowerCase());
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
+      statement.setString(1, '%' + keyword.toLowerCase() + '%');
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
       statement.setLong(4, numberCommentsGet);
       statement.setLong(5, offset);
       ResultSet result = statement.executeQuery();
@@ -419,13 +460,13 @@ public class DBManager {
 
   public ProjectList searchProjectPublicsByTypes(final Long numberCommentsGet, final Long offset,
       final String keyword, final String[] projectTypes) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') AND (? && p.type) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) AND (? && p.type) GROUP BY p.project_id ORDER BY p.last_update_date DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, keyword.toLowerCase());
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
+      statement.setString(1, '%' + keyword.toLowerCase() + '%');
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
       Array typesArray = conn.createArrayOf("text", projectTypes);
       statement.setArray(4, typesArray);
       statement.setLong(5, numberCommentsGet);
@@ -454,13 +495,13 @@ public class DBManager {
 
   public ProjectList searchProjectPublicsOrderByRate(final Long numberCommentsGet, final Long offset,
       final String keyword) {
-    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+    String sql = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(sql)) {
-      statement.setString(1, keyword.toLowerCase());
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
+      statement.setString(1, '%' + keyword.toLowerCase() + '%');
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
       statement.setLong(4, numberCommentsGet);
       statement.setLong(5, offset);
       ResultSet result = statement.executeQuery();
@@ -487,13 +528,13 @@ public class DBManager {
   public ProjectList searchProjectPublicsByTypesOrderByRate(final Long numberCommentsGet,
       final Long offset,
       final String keyword, final String[] projectTypes) {
-    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE '%?%' OR LOWER(cp.coauthor_email) LIKE '%?%' OR LOWER(p.description) LIKE '%?%') AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE p.public = true AND (LOWER(p.name) LIKE ? OR LOWER(cp.coauthor_username) LIKE ? OR LOWER(p.description) LIKE ?) AND (? && p.type) GROUP BY p.project_id HAVING AVG(sp.score) IS NOT NULL ORDER BY score DESC LIMIT ? OFFSET ?;";
 
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, keyword.toLowerCase());
-      statement.setString(2, keyword.toLowerCase());
-      statement.setString(3, keyword.toLowerCase());
+      statement.setString(1, '%' + keyword.toLowerCase() + '%');
+      statement.setString(2, '%' + keyword.toLowerCase() + '%');
+      statement.setString(3, '%' + keyword.toLowerCase() + '%');
       Array typesArray = conn.createArrayOf("text", projectTypes);
       statement.setArray(4, typesArray);
       statement.setLong(5, numberCommentsGet);
@@ -503,6 +544,35 @@ public class DBManager {
       while (result.next()) {
         String[] coauthors = getProjectCoauthors(result.getLong(1));
         typesArray = result.getArray("type");
+        String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
+        Float score = result.getFloat("score");
+        projects.getProjectList()
+            .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
+                result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
+                result.getBoolean("public"), coauthors, types, score));
+      }
+      return projects;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return null;
+  }
+
+  public ProjectList searchProjectsInUser(final String keyword, final String userToSearch) {
+    String query = "SELECT p.*, AVG(sp.score) AS \"score\" FROM project p INNER JOIN coauthor_project cp ON cp.project_id = p.project_id LEFT JOIN score_project sp ON p.project_id = sp.project_id WHERE cp.coauthor_username= ? AND (LOWER(p.name) LIKE ? OR LOWER(p.description) LIKE ?) GROUP BY p.project_id ORDER BY p.last_update_date DESC;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userToSearch);
+      statement.setString(2, "%" + keyword + "%");
+      statement.setString(3, "%" + keyword + "%");
+      ResultSet result = statement.executeQuery();
+      ProjectList projects = new ProjectList();
+      while (result.next()) {
+        String[] coauthors = getProjectCoauthors(result.getLong(1));
+        Array typesArray = result.getArray("type");
         String[] types = typesArray == null ? null : (String[]) typesArray.getArray();
         Float score = result.getFloat("score");
         projects.getProjectList()
@@ -696,7 +766,7 @@ public class DBManager {
   }
 
   public Boolean userIsCoauthor(Long projectId, String coauthor) {
-    String query = "SELECT * FROM coauthor_project WHERE project_id = ? AND coauthor_email = ?;";
+    String query = "SELECT * FROM coauthor_project WHERE project_id = ? AND coauthor_username = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
@@ -715,7 +785,7 @@ public class DBManager {
   }
 
   public int addCoauthor(Long projectId, String coauthor) {
-    String query = "INSERT INTO coauthor_project (coauthor_email,project_id) VALUES (?,?);";
+    String query = "INSERT INTO coauthor_project (coauthor_username,project_id) VALUES (?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, coauthor);
@@ -734,86 +804,11 @@ public class DBManager {
   }
 
   public int removeCoauthor(Long projectId, String coauthor) {
-    String query = "DELETE FROM coauthor_project WHERE project_id=? AND coauthor_email=?;";
+    String query = "DELETE FROM coauthor_project WHERE project_id=? AND coauthor_username=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
       statement.setString(2, coauthor);
-      int numRows = statement.executeUpdate();
-      if (numRows > 0) {
-        return 1;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return -1;
-  }
-
-  public String getShortUrlFile(final Long projectId, final String directoryName, final String fileName) {
-    String query = "SELECT short_url FROM file WHERE project_id=? AND directory_name=? AND file_name=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query);) {
-      statement.setLong(1, projectId);
-      statement.setString(2, directoryName);
-      statement.setString(3, fileName);
-      ResultSet rs = statement.executeQuery();
-      if (rs.next())
-        return rs.getString("short_url");
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-
-    return null;
-  }
-
-  public int saveShortUrlFile(final Long projectId, final String directoryName, final String fileName,
-      final String shortUrl) {
-    String query = "UPDATE file SET short_url=? WHERE project_id=? AND directory_name=? AND file_name = ?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, shortUrl);
-      statement.setLong(2, projectId);
-      statement.setString(3, directoryName);
-      statement.setString(4, fileName);
-      int numRows = statement.executeUpdate();
-      if (numRows > 0) {
-        return 1;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return -1;
-  }
-
-  public String getShortUrlProject(final Long projectId) {
-    String query = "SELECT short_url FROM project WHERE project_id=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query);) {
-      statement.setLong(1, projectId);
-      ResultSet rs = statement.executeQuery();
-      if (rs.next()) {
-        return rs.getString(1);
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return null;
-  }
-
-  public int saveShortUrlProject(final Long projectId, final String shortUrl) {
-    String query = "UPDATE project SET short_url=? WHERE project_id=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setString(1, shortUrl);
-      statement.setLong(2, projectId);
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
         return 1;
@@ -1002,6 +997,23 @@ public class DBManager {
     return -1;
   }
 
+  public Long getNumberResponseComment(String commentId) {
+    String query = "SELECT COUNT(*) FROM comment WHERE response_comment_id=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, commentId);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        return rs.getLong(1);
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return 0L;
+  }
+
   public Comment getCommentById(String commentId) {
     String query = "SELECT * FROM comment WHERE comment_id = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -1009,9 +1021,10 @@ public class DBManager {
       statement.setString(1, commentId);
       ResultSet result = statement.executeQuery();
       if (result.next()) {
+
         return new Comment(result.getString("comment_id"), result.getString("writter_email"),
             result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
-            result.getString("comment_text"));
+            result.getString("comment_text"), getNumberResponseComment(commentId));
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -1034,7 +1047,7 @@ public class DBManager {
         comments.getComments()
             .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
                 result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
-                result.getString("comment_text")));
+                result.getString("comment_text"), getNumberResponseComment(result.getString("comment_id"))));
       }
       return comments;
     } catch (SQLException e) {
@@ -1060,7 +1073,7 @@ public class DBManager {
         comments.getComments()
             .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
                 result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
-                result.getString("comment_text")));
+                result.getString("comment_text"), 0L));
       }
       return comments;
     } catch (SQLException e) {
@@ -1128,18 +1141,18 @@ public class DBManager {
     return -1;
   }
 
-  public ArrayList<String> getHistorialProject(final Long projectId){
+  public ArrayList<String> getHistorialProject(final Long projectId) {
     String query = "SELECT change_message FROM project_changes WHERE project_id=? AND version_name IS NULL ORDER BY change_date DESC;";
-    try(Connection conn = DriverManager.getConnection(url, username, password);
-    PreparedStatement statement = conn.prepareStatement(query)){
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
       ResultSet result = statement.executeQuery();
       ArrayList<String> historial = new ArrayList<String>();
-      while(result.next()){
+      while (result.next()) {
         historial.add(result.getString("change_message"));
       }
       return historial;
-    }catch (SQLException e) {
+    } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
     } catch (Exception e) {
       e.printStackTrace();
@@ -1147,4 +1160,88 @@ public class DBManager {
     return null;
   }
 
+  public Boolean shortUrlExist(String shortUrl) throws Exception {
+    String query = "SELECT * FROM short_url WHERE short_url = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, shortUrl);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        return true;
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      throw new Exception();
+    }
+    return false;
+  }
+
+  public String getShortUrl(final Long projectId, final String folderName, final String fileName,
+      final String versionName) {
+    String query = String.format(
+        "SELECT short_url FROM short_url WHERE project_id = %d AND folder_name %s AND file_name %s AND version_name %s;",
+        projectId,
+        folderName == null ? "IS NULL" : " = '" + folderName + "'",
+        fileName == null ? "IS NULL" : " = '" + fileName + "'",
+        versionName.equals("") ? "IS NULL" : " = '" + versionName + "'");
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return result.getString("short_url");
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public Boolean resourcesHasUrl(final Long projectId, final String folderName, final String fileName,
+      final String versionName) throws Exception {
+    String query = String.format(
+        "SELECT short_url FROM short_url WHERE project_id = %d AND folder_name %s AND file_name %s AND version_name %s;",
+        projectId,
+        folderName == null ? "IS NULL" : " = '" + folderName + "'",
+        fileName == null ? "IS NULL" : " = '" + fileName + "'",
+        versionName.equals("") ? "IS NULL" : " = '" + versionName + "'");
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        return true;
+      } else {
+        return false;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    throw new Exception("Error on database");
+  }
+
+  public int insertShortUrl(final String shortUrl, final Long projectId, final String folderName, final String fileName,
+      final String versionName) {
+    String query = "INSERT INTO short_url (short_url, project_id, folder_name, file_name, version_name) VALUES (?,?,?,?,?);";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, shortUrl);
+      statement.setLong(2, projectId);
+      statement.setString(3, folderName);
+      statement.setString(4, fileName);
+      statement.setString(5, versionName.equals("") ? null : versionName);
+      int numRows = statement.executeUpdate();
+      if (numRows > 0) {
+        return numRows;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return -1;
+  }
 }

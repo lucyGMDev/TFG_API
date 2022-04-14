@@ -15,13 +15,15 @@ public class FileData {
   Boolean isPublic;
   HashMap<String, Integer> scores;
   float avgScore;
+  Long numDownload;
 
   public FileData() {
     scores = new HashMap<String, Integer>();
   }
 
   public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedDate,
-      String author, String description, Boolean isPublic, HashMap<String, Integer> scores, float avgScore) {
+      String author, String description, Boolean isPublic, HashMap<String, Integer> scores, float avgScore,
+      Long numDownload) {
     this.fileName = fileName;
     this.directoryName = directoryName;
     this.projectId = projectId;
@@ -32,6 +34,7 @@ public class FileData {
     this.isPublic = isPublic;
     this.scores = scores;
     this.avgScore = avgScore;
+    this.numDownload = numDownload;
   }
 
   public String getFileName() {
@@ -106,12 +109,18 @@ public class FileData {
     this.scores = scores;
   }
 
-  
   public float getAvgScore() {
     calculateAvgScore();
     return this.avgScore;
   }
 
+  public Long getNumberDownloads() {
+    return numDownload;
+  }
+
+  public void setNumberDownloads(Long numDownload) {
+    this.numDownload = numDownload;
+  }
 
   public void calculateAvgScore() {
     float sumScore = 0;
@@ -122,11 +131,15 @@ public class FileData {
     this.avgScore = BigDecimal.valueOf(avg).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue();
   }
 
-  public void addScore(String user, Integer score){
-    if(this.scores == null){
+  public void addScore(String user, Integer score) {
+    if (this.scores == null) {
       this.scores = new HashMap<String, Integer>();
     }
     this.scores.put(user, score);
     calculateAvgScore();
+  }
+
+  public void incrementNumberDownloads() {
+    this.numDownload++;
   }
 }

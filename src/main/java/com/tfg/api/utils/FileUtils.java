@@ -61,6 +61,7 @@ public class FileUtils {
       throws Exception {
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail))
       return false;
+    
     FileData metadataFile = getMetadataFile(projectId, directoryName, fileName);
     if (metadataFile == null) {
       throw new Exception("Error getting metadata file");

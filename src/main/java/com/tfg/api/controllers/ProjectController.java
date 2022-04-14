@@ -22,10 +22,12 @@ import com.tfg.api.data.FolderMetadata;
 import com.tfg.api.data.OrderFilter;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
+import com.tfg.api.data.User;
 import com.tfg.api.data.VersionList;
 import com.tfg.api.data.bodies.ProjectBody;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.FileUtils;
+import com.tfg.api.utils.FolderUtils;
 import com.tfg.api.utils.HistorialMessages;
 import com.tfg.api.utils.JwtUtils;
 import com.tfg.api.utils.ProjectRepository;
@@ -38,6 +40,9 @@ import org.glassfish.jersey.media.multipart.FormDataContentDisposition;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class ProjectController {
+
+  // TODO: Tener en cuenta que hay que añadir al versionName.equal("") el nombre
+  // por defecto de la version actual
 
   public static Response getProject(String token, Long projectId) {
     DBManager database = new DBManager();
@@ -85,9 +90,11 @@ public class ProjectController {
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
-    if (!database.userExistsByEmail(ownerProjects)) {
+    User user = database.getUserByEmail(userEmail);
+
+    if (!database.userExistsByUsername(ownerProjects)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"There are not any user with this email\"}").build();
+          .entity("{\"message\":\"There are not any user with this username\"}").build();
     }
 
     ProjectList projects = database.getProjectsFromUser(ownerProjects);
@@ -97,7 +104,7 @@ public class ProjectController {
     }
 
     projects.setProjectList(projects.getProjectList().stream()
-        .filter(project -> project.getIsPublic() || Arrays.asList(project.getCoauthors()).contains(userEmail))
+        .filter(project -> project.getIsPublic() || Arrays.asList(project.getCoauthors()).contains(user.getUsername()))
         .collect(Collectors.toCollection(ArrayList::new)));
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects))
@@ -162,6 +169,38 @@ public class ProjectController {
         .build();
   }
 
+  public static Response searchInUserProjects(final String token, final String keyword, final String usename) {
+    DBManager database = new DBManager();
+    JwtUtils jwtUtils = new JwtUtils();
+    Gson jsonManager = new Gson();
+    String email;
+    try {
+      email = jwtUtils.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+    User user = database.getUserByEmail(email);
+    if (!database.userExistsByUsername(usename)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any users with that email\"}").build();
+    }
+
+    ProjectList projects = database.searchProjectsInUser(keyword, usename);
+    if (projects == null) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting projects\"}").build();
+    }
+
+    projects.setProjectList(projects.getProjectList().stream()
+        .filter(project -> ProjectUtils.userCanAccessProject(project.getProject_id(), user.getUsername()))
+        .collect(Collectors.toCollection(ArrayList::new)));
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(projects))
+        .build();
+  }
+
   public static Response createProject(final ProjectBody project, final String token) {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
@@ -175,16 +214,7 @@ public class ProjectController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
-    if (project.getOwner() == null) {
-      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Owner is required\"}")
-          .type(MediaType.APPLICATION_JSON).build();
-    }
-    if (!project.getOwner().equals(userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity("{\"message\":\"Project owner does not match with login user\"}").type(MediaType.APPLICATION_JSON)
-          .build();
-    }
-    if (!database.userExistsByEmail(userEmail)) {
+    if (!database.userExistsByUsername(userEmail)) {
       return Response.status(Response.Status.BAD_REQUEST)
           .entity("{\"message\":\"There are any user register with that email\"}").type(MediaType.APPLICATION_JSON)
           .build();
@@ -211,7 +241,7 @@ public class ProjectController {
 
     if (project.getCoauthors() != null) {
       for (String coauthor : project.getCoauthors()) {
-        if (!database.userExistsByEmail(coauthor)) {
+        if (!database.userExistsByUsername(coauthor)) {
           return Response.status(Response.Status.BAD_REQUEST)
               .entity("{\"message\":\"You are trying to add a coauthor that already not exists\"}")
               .type(MediaType.APPLICATION_JSON).build();
@@ -236,20 +266,31 @@ public class ProjectController {
     String projectPath = rootProjects + File.separator + projectId;
     final File projectFolder = new File(projectPath);
     projectFolder.mkdirs();
-
-    String[] projectsSubdir = environmentVariablesManager.get("PROJECT_SUBDIRS").split(",");
-    for (String subDir : projectsSubdir) {
-      String subFolderPath = projectPath + File.separator + subDir.trim();
-      File subFolder = new File(subFolderPath);
-      subFolder.mkdirs();
+    ProjectRepository projectRepository;
+    try {
+      projectRepository = new ProjectRepository(projectPath);
+    } catch (IllegalStateException | GitAPIException | IOException e1) {
+      database.deleteProject(projectId);
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while creating project\"}").build();
     }
 
-    try {
-      new ProjectRepository(projectPath);
-    } catch (Exception e) {
-      e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity("{\"message\":\"Error creating repository\"}").type(MediaType.APPLICATION_JSON).build();
+    String[] projectsSubdir = environmentVariablesManager.get("PROJECT_SUBDIRS").split(",");
+    String commitId = null;
+    for (String subDir : projectsSubdir) {
+      String subFolderPath = projectPath + File.separator + subDir.trim();
+      try {
+        commitId = projectRepository.createFolder(subFolderPath, subDir);
+      } catch (IOException | GitAPIException e) {
+        e.printStackTrace();
+        database.deleteProject(projectId);
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while creating project\"}").build();
+      }
+    }
+
+    if (commitId != null) {
+      database.addCommitProject(projectId, commitId);
     }
     HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CreateProject, userEmail,
         new Date());
@@ -302,9 +343,9 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You do not have permission to update the project \"}")
-          .type(MediaType.APPLICATION_JSON).build();
+          .build();
     }
 
     Project project = database.getProjectById(projectId);
@@ -363,13 +404,13 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to add coauthors on this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
     for (String coauthor : coauthors) {
-      if (!database.userExistsByEmail(coauthor)) {
+      if (!database.userExistsByUsername(coauthor)) {
         return Response.status(Response.Status.BAD_REQUEST)
             .entity("{\"message\":\"You are trying to add an user who does not exist\"}")
             .type(MediaType.APPLICATION_JSON).build();
@@ -424,13 +465,13 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to remove coauthors on this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
     for (String coauthor : coauthors) {
-      if (!database.userExistsByEmail(coauthor)) {
+      if (!database.userExistsByUsername(coauthor)) {
         return Response.status(Response.Status.BAD_REQUEST)
             .entity("{\"message\":\"You are trying to remove an user who does not exist\"}")
             .type(MediaType.APPLICATION_JSON).build();
@@ -448,7 +489,8 @@ public class ProjectController {
             .entity("{\"message\":\"An error occurred while removing coauthor\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorRemoved,userEmail, coauthor, new Date());
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorRemoved,
+          userEmail, coauthor, new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
       database.addChangeMessageProject(projectId, null, changeMessage);
     }
@@ -457,6 +499,100 @@ public class ProjectController {
 
     return Response.status(Response.Status.OK).entity(jsonManager.toJson(project)).type(MediaType.APPLICATION_JSON)
         .build();
+  }
+
+  /**
+   * Update the visibility of a folder
+   * 
+   * @param token       JWToken with user email
+   * @param projectId   Project id of project to change
+   * @param folderName  Folder name whose visibility will be changed
+   * @param isPublic    Change the folder to public if true or private if false
+   * @param versionName Name of the version whose folder visibility will be
+   *                    changed
+   * @return Response with the result of the operation
+   */
+  public static Response updateVisibilityFolder(final String token, final Long projectId, final String folderName,
+      final Boolean isPublic, final String versionName) {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to update this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Folder name is not valid\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && database.versionExistsOnProject(projectId, versionName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    }
+
+    String versionId = (versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository projectRepository;
+    try {
+      projectRepository = new ProjectRepository(projectPath);
+      projectRepository.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    FolderMetadata folderMetadata;
+    try {
+      folderMetadata = FolderUtils.getMetadataFolder(projectId, folderName);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    folderMetadata.setIsPublic(isPublic);
+    String commitId;
+    try {
+      commitId = projectRepository.createMetadataFolder(jsonManager.toJson(folderMetadata), folderName);
+    } catch (IOException | GitAPIException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    if ((versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))) {
+      database.addCommitProject(projectId, commitId);
+    } else {
+      database.updateVersionCommit(projectId, versionName, commitId);
+    }
+
+    String lastProjectVersion = database.getLastCommitProject(projectId);
+    try {
+      projectRepository.changeVersion(lastProjectVersion);
+    } catch (GitAPIException e) {
+      e.printStackTrace();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
   }
 
   public static Response addFileToProject(final Long projectId, final String token, final String folderName,
@@ -496,13 +632,13 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Does not exist that folder\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to add files on this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
@@ -564,9 +700,25 @@ public class ProjectController {
     FileData metadata;
     try {
       metadata = new FileData(filename, folderName, projectId, new Date(), new Date(), userEmail, description,
-          isPublic, new HashMap<String, Integer>(), 0);
+          isPublic, new HashMap<String, Integer>(), 0, 0L);
       commit = projectRepository.createMetadataFile(jsonManager.toJson(metadata), folderName, filename);
     } catch (IOException | GitAPIException e) {
+      try {
+        projectRepository.changeVersion(lastProjectVersion);
+      } catch (GitAPIException e1) {
+        e1.printStackTrace();
+      }
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Server error was produced while uploading file\"}").type(MediaType.APPLICATION_JSON)
+          .build();
+    }
+    FolderMetadata folderMetadata;
+    try {
+      folderMetadata = FolderUtils.getMetadataFolder(projectId, folderName);
+      folderMetadata.setLastUpdated(new Date());
+      commit = projectRepository.createMetadataFolder(jsonManager.toJson(folderMetadata), folderName);
+    } catch (Exception e) {
       try {
         projectRepository.changeVersion(lastProjectVersion);
       } catch (GitAPIException e1) {
@@ -614,7 +766,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -628,13 +780,24 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"You hve not permission to access this project\"}").build();
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this project\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting files from folder\"}").build();
     }
 
     String lastCommitVersion = database.getLastCommitProject(projectId);
@@ -651,7 +814,7 @@ public class ProjectController {
     }
     FileList files;
     try {
-      files = ProjectUtils.getFilesFromFolder(projectId, folderName, ProjectUtils.userIsAuthor(projectId, userEmail));
+      files = FolderUtils.getFilesFromFolder(projectId, folderName, ProjectUtils.userIsAuthor(projectId, userEmail));
     } catch (Exception e) {
       e.printStackTrace();
       try {
@@ -664,16 +827,7 @@ public class ProjectController {
     }
 
     try {// Una vez que he obtenido los archivos, añado la visita
-      String folderMetadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
-          + File.separator + folderName
-          + ".json";
-      File folderMetadataFile = new File(folderMetadataPath);
-      FolderMetadata metadata;
-      if (folderMetadataFile.exists()) {// TODO: Posiblemente sea mejor crear los metadatos cuando se crean las carpetas
-        metadata = ProjectUtils.getMetadataFolder(projectId, folderName);
-      } else {
-        metadata = new FolderMetadata();
-      }
+      FolderMetadata metadata = FolderUtils.getMetadataFolder(projectId, folderName);
       metadata.incrementNumberViews();
       String commitId = project.createMetadataFolder(jsonManager.toJson(metadata), folderName);
       if (!versionName.equals("")) {
@@ -717,12 +871,12 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
           .build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
     }
@@ -737,7 +891,7 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this version\"}").build();
     }
 
@@ -753,6 +907,17 @@ public class ProjectController {
           .entity("{\"message\":\"Error while getting file\"}").build();
     }
 
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
     if (!FileUtils.fileExists(projectId, folderName, filename)) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -760,7 +925,7 @@ public class ProjectController {
 
     try {
       if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
-        return Response.status(Response.Status.BAD_REQUEST)
+        return Response.status(Response.Status.UNAUTHORIZED)
             .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
@@ -808,11 +973,11 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"The folder name is not valid\"}").build();
     }
@@ -827,7 +992,7 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You hve not permission to access this version\"}").build();
     }
 
@@ -842,6 +1007,17 @@ public class ProjectController {
           .entity("{\"message\":\"Error whule getting file\"}").build();
     }
 
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission download this file\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading this file\"}").build();
+    }
+
     if (!FileUtils.fileExists(projectId, folderName, filename)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity(
@@ -851,7 +1027,7 @@ public class ProjectController {
 
     try {
       if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
-        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
             .entity("{\"message\":\"You have not permission to access this file\"}").build();
       }
     } catch (Exception e) {
@@ -885,7 +1061,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to update this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
@@ -900,6 +1076,16 @@ public class ProjectController {
       e2.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while adding file to project\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this project\"}").build();
+      }
+    } catch (Exception e2) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating file\"}").build();
     }
 
     if (!FileUtils.fileExists(projectId, folderName, filename)) {
@@ -1023,11 +1209,11 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to remove files on this project\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Folder name is not valid\"}").build();
     }
@@ -1104,7 +1290,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -1113,7 +1299,7 @@ public class ProjectController {
           .entity("{\"message\":\"Folder name is required\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Folder name is not valid\"}").build();
     }
@@ -1148,7 +1334,7 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this version\"}").build();
     }
 
@@ -1161,6 +1347,28 @@ public class ProjectController {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while rating file\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to rate this file\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while rating file\"}").build();
+    }
+
+    try {
+      if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have no permission to rate this file\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error while rating file\"}").build();
     }
 
     if (!FileUtils.fileExists(projectId, folderName, filename)) {
@@ -1260,7 +1468,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -1269,7 +1477,7 @@ public class ProjectController {
           .entity("{\"message\":\"Folder name is required\"}").build();
     }
 
-    if (!ProjectUtils.folderNameIsValid(folderName)) {
+    if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Folder name is not valid\"}").build();
     }
@@ -1294,7 +1502,7 @@ public class ProjectController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You hve not permission to access this project\"}").build();
     }
 
@@ -1307,6 +1515,28 @@ public class ProjectController {
       e.printStackTrace();
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting rate\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting rating\"}").build();
+    }
+
+    try {
+      if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have no permission to access to this file\"}").build();
+      }
+    } catch (Exception e2) {
+      e2.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error while getting rating\"}").build();
     }
 
     if (!FileUtils.fileExists(projectId, folderName, filename)) {
@@ -1340,84 +1570,111 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(responseJson).build();
   }
 
-  public static Response getFileLink(final String token, final Long projectId, final String folderName,
-      final String filename) {
-    // TODO: Arreglar links
-    JwtUtils jwtManager = new JwtUtils();
+  public static Response getShortUrl(final String token, final Long projectId, final String folderName,
+      final String fileName, final String versionName) {
     DBManager database = new DBManager();
-    String userEmail;
-    try {
-      userEmail = jwtManager.getUserEmailFromJwt(token);
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error loading user email\"}")
-          .type(MediaType.APPLICATION_JSON).build();
-    }
-    try {
-
-      if (!FileUtils.userCanAccessFile(projectId, folderName, filename, userEmail)) {
-        return Response.status(Response.Status.BAD_REQUEST)
-            .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
-            .build();
-      }
-    } catch (Exception e) {
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-          .entity("{\"message\":\"Error while getting file link\"}").type(MediaType.APPLICATION_JSON).build();
-    }
-    String shortUrl = database.getShortUrlFile(projectId, folderName, filename);
-    if (shortUrl == null) {
-      UUID fileUUID = UUID.randomUUID();
-      String[] uuidSplited = fileUUID.toString().split("-");
-      shortUrl = "";
-      for (String uuidElement : uuidSplited) {
-        shortUrl += uuidElement;
-      }
-      if (database.saveShortUrlFile(projectId, folderName, filename, shortUrl) == -1) {
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error saving short url\"}")
-            .type(MediaType.APPLICATION_JSON).build();
-      }
-    }
-
-    return Response.status(Response.Status.OK).entity("{\"shortUrl\":\"" + shortUrl + "\"}")
-        .type(MediaType.APPLICATION_JSON).build();
-  }
-
-  public static Response getFolderLink(final String token, final Long projectId) {
-    // TODO: Arreglar Links
+    Dotenv environmentVariablesManager = Dotenv.load();
     JwtUtils jwtManager = new JwtUtils();
-    DBManager database = new DBManager();
     String userEmail;
     try {
       userEmail = jwtManager.getUserEmailFromJwt(token);
     } catch (Exception e) {
       e.printStackTrace();
-      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting user email\"}")
-          .type(MediaType.APPLICATION_JSON).build();
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
-    if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
-          .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
-          .build();
+    if (projectId == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Project id is required\"}").build();
     }
 
-    String projectUrl = database.getShortUrlProject(projectId);
-    if (projectUrl == null) {
-      UUID uuid = UUID.randomUUID();
-      String[] urlSplited = uuid.toString().split("-");
-      projectUrl = "";
-      for (String split : urlSplited) {
-        projectUrl += split;
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Yo have not permissions get a shortUrl\"}").build();
+    }
+
+    String versionId;
+    try {
+      versionId = ProjectUtils.getCommitIdVersion(projectId, versionName, userEmail);
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting short url\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project;
+    try {
+      project = new ProjectRepository(projectPath);
+      project.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting short url\"}").build();
+    }
+
+    if (folderName != null) {
+      if (!FolderUtils.folderNameIsValid(folderName)) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"This folder name is invalid\"}").build();
       }
 
-      if (database.saveShortUrlProject(projectId, projectUrl) == -1) {
-        return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
-            .entity("{\"message\":\"Error creating short url\"}").type(MediaType.APPLICATION_JSON).build();
-      }
-
     }
 
-    String response = "{\"shortUrl\":\"" + projectUrl + "\"}";
-    return Response.status(Response.Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
+    if (fileName != null) {
+      if (folderName == null) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Folder name is required to access to a file\"}").build();
+      }
+      if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"This file does not exist for this project\"}").build();
+      }
+    }
+
+    String shortUrl;
+    try {
+      if (database.resourcesHasUrl(projectId, folderName, fileName, versionName)) {
+        shortUrl = database.getShortUrl(projectId, folderName, fileName, versionName);
+      } else {
+        int maxIteration = 30;
+        do {
+          if (maxIteration <= 0) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+                .entity("{\"message\":\"Error while getting short url\"}").build();
+          }
+          shortUrl = "";
+          UUID uuid = UUID.randomUUID();
+          String[] uuidFields = uuid.toString().split("-");
+          for (String field : uuidFields) {
+            shortUrl += field;
+          }
+          shortUrl = shortUrl.substring(0, 16);
+          maxIteration--;
+        } while (database.shortUrlExist(shortUrl));
+        if (database.insertShortUrl(shortUrl, projectId, folderName, fileName, versionName) == -1) {
+          return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+              .entity("{\"message\":\"Error while getting short url\"}").build();
+        }
+      }
+    } catch (Exception e1) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting short url\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity(String.format("{\"shorUrl\":\"%s\"}", shortUrl)).build();
+
   }
 
   public static Response createVersion(final String token, final Long projectId, final String versionName,
@@ -1441,7 +1698,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to create a version of this project\"}").build();
     }
 
@@ -1502,7 +1759,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
           .build();
     }
@@ -1544,7 +1801,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -1582,7 +1839,7 @@ public class ProjectController {
     }
 
     if (!ProjectUtils.userCanAccessProject(projectId, userEmail) && !database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have no permissions to access this project\"}").build();
     }
 
@@ -1640,7 +1897,8 @@ public class ProjectController {
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     }
 
-    // TODO: Gestionar historial de una version
+    // TODO: Gestionar historial de una version. Actualmente no es necesario manejar
+    // historial de las versiones
 
     ArrayList<String> historialsJson = database.getHistorialProject(projectId);
     if (historialsJson == null) {

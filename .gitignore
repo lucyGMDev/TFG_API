@@ -1,6 +1,7 @@
 .editorconfig
 .env
 projects/
+usersPictures/
 #
 # Standard Maven .gitignore
 #

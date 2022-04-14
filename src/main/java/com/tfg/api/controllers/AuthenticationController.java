@@ -9,7 +9,6 @@ import javax.ws.rs.core.Response.Status;
 import com.google.gson.Gson;
 import com.tfg.api.data.OAuthLoginAuthenticationJSON;
 import com.tfg.api.data.User;
-import com.tfg.api.data.bodies.UserBody;
 import com.tfg.api.utils.DBManager;
 import io.github.cdimascio.dotenv.Dotenv;
 import io.jsonwebtoken.Jwts;
@@ -22,23 +21,13 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 
-
 public class AuthenticationController {
-  public static Response createUserSesion(UserBody user, final String OAuthtoken) {
+  public static Response createUserSesion(final String OAuthtoken) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
     Dotenv environmentVariablesManager = Dotenv.load();
-    User userLogged;
-  
-    if(user == null)
-    {
-      return Response.status(Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON).entity("{\"message\":\"User is required\"}").build();
-    }
-    if (user.getEmail() == null)
-      return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Email is required\"}")
-          .type(MediaType.APPLICATION_JSON).build();
 
-    //TODO: Add OAuthtoken crypted
+    // TODO: Add OAuthtoken crypted
 
     StringBuilder oauthAuthenticationResponse = new StringBuilder();
     URL authenticationLoginURL = null;
@@ -92,25 +81,14 @@ public class AuthenticationController {
     OAuthLoginAuthenticationJSON oauthLoginToken = jsonManager.fromJson(oauthAuthenticationResponse.toString(),
         OAuthLoginAuthenticationJSON.class);
 
-    if (!oauthLoginToken.getEmail_verified() || oauthLoginToken.getEmail().compareTo(user.getEmail()) != 0) {
-      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Failure on authentication\"}").build();
-    }
+    String userEmail = oauthLoginToken.getEmail();
 
-    if (database.userExistsByEmail(user.getEmail())) {
-      userLogged = database.getUserByEmail(user.getEmail());
-      if (userLogged == null) {
-        return Response.status(Status.BAD_REQUEST).entity("{\"message\":\"Error while login\"}")
-            .type(MediaType.APPLICATION_JSON).build();
-      }
-    } else {
-      userLogged = database.insertUser(user.getEmail());
-      if (userLogged == null) {
-        return Response.status(Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error while creating user\"}")
-            .type(MediaType.APPLICATION_JSON).build();
-      }
+    if (!database.userExistsByEmail(userEmail)) {
+      return Response.status(Response.Status.BAD_REQUEST).build();
     }
+    User user = database.getUserByEmail(userEmail);
     String token = Jwts.builder()
-        .setSubject(user.getEmail())
+        .setSubject(userEmail)
         .setIssuer("/create_user_sesion")
         .setIssuedAt(new Date())
         .setExpiration(
@@ -118,7 +96,7 @@ public class AuthenticationController {
         .signWith(SignatureAlgorithm.HS512, environmentVariablesManager.get("JWT_SECRET"))
         .compact();
 
-    String response = "{\"user\":" + jsonManager.toJson(userLogged) + ", \"token\":\"" + token + "\"" + "}";
+    String response = "{\"user\":" + jsonManager.toJson(user) + ",\"token\":\"" + token + "\"" + "}";
     return Response.status(Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
   }
 }

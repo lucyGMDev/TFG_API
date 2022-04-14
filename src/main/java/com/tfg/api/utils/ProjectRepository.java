@@ -8,6 +8,10 @@ import java.io.FileOutputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+
+import com.google.gson.Gson;
+import com.tfg.api.data.FolderMetadata;
+
 import org.eclipse.jgit.api.Git;
 import org.eclipse.jgit.api.errors.CheckoutConflictException;
 import org.eclipse.jgit.api.errors.GitAPIException;
@@ -25,7 +29,7 @@ public class ProjectRepository {
   Repository repository;
 
   public ProjectRepository(String repositoryPath) throws IllegalStateException, GitAPIException, IOException {
-    File gitFile = new File(repositoryPath+ File.separator + ".git");
+    File gitFile = new File(repositoryPath + File.separator + ".git");
     if (!gitFile.exists()) {
       this.git = Git.init().setDirectory(new File(repositoryPath)).call();
     }
@@ -104,7 +108,8 @@ public class ProjectRepository {
     return file;
   }
 
-  public String addFile(InputStream dStream, String folderName, String filename, String commitMessage) throws IOException, GitAPIException {
+  public String addFile(InputStream dStream, String folderName, String filename, String commitMessage)
+      throws IOException, GitAPIException {
     String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName;
     File fileUpdated = writeInfo(dStream, path, filename);
     getGit().add().addFilepattern(folderName + File.separator + fileUpdated.getName()).call();
@@ -112,15 +117,30 @@ public class ProjectRepository {
     return commit.getName();
   }
 
+  public String createFolder(String subFolderPath, String folderName) throws IOException, GitAPIException {
+    Gson jsonManager = new Gson();
+    File subFolder = new File(subFolderPath);
+    subFolder.mkdirs();
+    FolderMetadata folderMetadata = new FolderMetadata(folderName.trim());
+    getGit().add().addFilepattern(folderName).call();
+    String folderMetadataContent = jsonManager.toJson(folderMetadata);
+    createMetadataFolder(folderMetadataContent, folderName);
+    getGit().add().addFilepattern(folderName + ".json").call();
+    RevCommit commit = getGit().commit().setMessage(String.format("Folder %s created", folderName)).call();
+    return commit.getName();
+  }
+
   public String createMetadataFile(String metadata, String folderName, String filename)
       throws IOException, GitAPIException {
     String metadataFilename = FileUtils.getMetadataFilename(filename);
-    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName + File.separator + "metadata";
+    String path = getRepository().getDirectory().getParentFile().getAbsolutePath() + File.separator + folderName
+        + File.separator + "metadata";
     File metadataFolder = new File(path);
     if (!metadataFolder.exists())
       metadataFolder.mkdirs();
     File metadataFile = createFileFromString(metadata, path, metadataFilename);
-    getGit().add().addFilepattern(folderName + File.separator + "metadata"+ File.separator + metadataFile.getName()).call();
+    getGit().add().addFilepattern(folderName + File.separator + "metadata" + File.separator + metadataFile.getName())
+        .call();
     String commitMessage = "Create metadata file: " + metadataFilename + " to folder " + folderName;
     RevCommit commit = getGit().commit().setMessage(commitMessage).call();
 
@@ -152,12 +172,13 @@ public class ProjectRepository {
     return currentVersionId;
   }
 
-  public String removerFileFromProject(String path, String commitMessage) throws NoFilepatternException, GitAPIException {
+  public String removerFileFromProject(String path, String commitMessage)
+      throws NoFilepatternException, GitAPIException {
     File file = new File(path);
     if (file.exists()) {
       file.delete();
       getGit().add().addFilepattern(".").call();
-      RevCommit commit =  getGit().commit().setMessage(commitMessage).call();
+      RevCommit commit = getGit().commit().setMessage(commitMessage).call();
       return commit.getName();
     }
     return null;
