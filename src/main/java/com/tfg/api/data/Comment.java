@@ -4,7 +4,7 @@ import java.util.Date;
 
 public class Comment {
   String commentId;
-  String writterEmail;
+  String username;
   String responseCommentId;
   Long projectId;
   Date postDate;
@@ -14,10 +14,10 @@ public class Comment {
   public Comment() {
   }
 
-  public Comment(String commentId, String writterEmail, String responseCommentId, Long projectId, Date postDate,
+  public Comment(String commentId, String username, String responseCommentId, Long projectId, Date postDate,
       String commentText, Long numberResponses) {
     this.commentId = commentId;
-    this.writterEmail = writterEmail;
+    this.username = username;
     this.responseCommentId = responseCommentId;
     this.projectId = projectId;
     this.postDate = postDate;
@@ -33,12 +33,12 @@ public class Comment {
     this.commentId = commentId;
   }
 
-  public String getWritterEmail() {
-    return writterEmail;
+  public String getUsername() {
+    return username;
   }
 
-  public void setWritterEmail(String writterEmail) {
-    this.writterEmail = writterEmail;
+  public void setUsername(String username) {
+    this.username = username;
   }
 
   public String getResponseCommentId() {

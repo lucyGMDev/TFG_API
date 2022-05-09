@@ -386,7 +386,7 @@ public class GuestController {
     }
 
     if (!database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -726,7 +726,7 @@ public class GuestController {
     }
 
     if (!database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
           .build();
     }
@@ -746,7 +746,7 @@ public class GuestController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     } catch (AccessControlException ace) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this version\"}").build();
     }
 
@@ -780,7 +780,7 @@ public class GuestController {
 
     try {
       if (!FileUtils.fileIsPublic(projectId, folderName, fileName)) {
-        return Response.status(Response.Status.BAD_REQUEST)
+        return Response.status(Response.Status.UNAUTHORIZED)
             .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
@@ -828,7 +828,7 @@ public class GuestController {
     }
 
     if (!database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to access this project\"}").build();
     }
 
@@ -882,7 +882,7 @@ public class GuestController {
 
     try {
       if (!FileUtils.fileIsPublic(projectId, folderName, fileName)) {
-        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
             .entity("{\"message\":\"You have not permission to access this file\"}").build();
       }
     } catch (Exception e) {
@@ -919,7 +919,7 @@ public class GuestController {
     }
 
     if (!database.projectIsPublic(projectId)) {
-      return Response.status(Response.Status.BAD_REQUEST)
+      return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
           .build();
     }

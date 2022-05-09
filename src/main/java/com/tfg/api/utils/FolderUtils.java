@@ -28,10 +28,10 @@ public class FolderUtils {
     return false;
   }
 
-  public static Boolean userCanAccessFolder(Long projectId, String folderName, String userEmail) throws Exception {
+  public static Boolean userCanAccessFolder(Long projectId, String folderName, String username) throws Exception {
     DBManager database = new DBManager();
     FolderMetadata folderMetadata = getMetadataFolder(projectId, folderName);
-    if (!database.userIsCoauthor(projectId, userEmail) && !folderMetadata.getIsPublic())
+    if (!database.userIsCoauthor(projectId, username) && !folderMetadata.getIsPublic())
       return false;
 
     return true;
@@ -132,6 +132,11 @@ public class FolderUtils {
     return getFilesFromFolder(projectId, folderName).getFiles().stream().filter(file -> file.getIsPublic()).count();
   }
 
+  public static Long getNumberFiles(Long projectId, String folderName) throws Exception {
+
+    return getFilesFromFolder(projectId, folderName, true).getFiles().stream().count();
+  }
+
   /**
    * Get a list of all items in the project, but all private items are censured
    * (dont seen any data)
@@ -166,6 +171,42 @@ public class FolderUtils {
               folderMetadata.resestMetadata();
               return folderMetadata;
             }
+          })
+          .collect(Collectors.toCollection(ArrayList::new));
+    } catch (RuntimeException e) {
+      throw new Exception(e);
+    }
+    return publicFoldersMetadata;
+  }
+
+  /**
+   * Get a list of all items in the project
+   * 
+   * @param projectId Identifier of the project
+   * @return A list with all items in the project
+   * @throws Exception
+   */
+  public static ArrayList<FolderMetadata> getListItems(Long projectId) throws Exception {
+    Dotenv environmentVariablesManager = Dotenv.load();
+
+    ArrayList<FolderMetadata> publicFoldersMetadata = new ArrayList<FolderMetadata>();
+    try {
+      publicFoldersMetadata = Arrays
+          .stream(environmentVariablesManager.get("PROJECT_SUBDIRS").split(",")).map((String folderName) -> {
+            try {
+              return FolderUtils.getMetadataFolder(projectId, folderName);
+            } catch (Exception e) {
+              e.printStackTrace();
+              throw new RuntimeException(e);
+            }
+          }).map((FolderMetadata folderMetadata) -> {
+            try {
+              folderMetadata.setNumberFiles(getNumberFiles(projectId, folderMetadata.getFolderName()));
+            } catch (Exception e) {
+              e.printStackTrace();
+              throw new RuntimeException(e);
+            }
+            return folderMetadata;
           })
           .collect(Collectors.toCollection(ArrayList::new));
     } catch (RuntimeException e) {

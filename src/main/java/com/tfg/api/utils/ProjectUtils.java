@@ -1,6 +1,8 @@
 package com.tfg.api.utils;
 
+import java.io.File;
 import java.security.AccessControlException;
+import java.util.Arrays;
 
 import javax.ws.rs.NotFoundException;
 
@@ -71,8 +73,9 @@ public class ProjectUtils {
       throws NullPointerException, AccessControlException, NotFoundException {
     String commitIdVersion;
     DBManager database = new DBManager();
-    Boolean userIsAuthor = !ProjectUtils.userIsAuthor(projectId, username);
-    if (versionName.equals("")) {
+    Boolean userIsAuthor = ProjectUtils.userIsAuthor(projectId, username);
+    Dotenv environmentVariablesManager = Dotenv.load();
+    if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
       commitIdVersion = database.getLastCommitProject(projectId);
       if (commitIdVersion == null) {
         throw new NullPointerException();
@@ -122,6 +125,23 @@ public class ProjectUtils {
       }
     }
     return commitIdVersion;
+  }
+
+  private static void deleteFolder(File folder) {
+    Arrays.asList(folder.listFiles()).stream().forEach(file -> {
+      if (file.isDirectory()) {
+        deleteFolder(file);
+      }
+      file.delete();
+    });
+    folder.delete();
+  }
+
+  public static void deleteProject(Long projectId) {
+    Dotenv environmentVariablesManager = Dotenv.load();
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    File project = new File(path);
+    deleteFolder(project);
   }
 
 }

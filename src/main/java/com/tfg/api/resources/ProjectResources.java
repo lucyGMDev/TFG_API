@@ -1,6 +1,7 @@
 package com.tfg.api.resources;
 
 import java.io.InputStream;
+import java.util.List;
 
 import javax.ws.rs.Consumes;
 import javax.ws.rs.DELETE;
@@ -24,7 +25,7 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 
 @Path("/project")
 public class ProjectResources {
-
+  // TODO: Hacer methodo para descargar un solo proyecto
   @GET
   @Path("/{projectId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -32,6 +33,16 @@ public class ProjectResources {
       @PathParam("projectId") final Long projectId) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getProject(token, projectId);
+  }
+
+  @GET
+  @Path("{projectId}/getItems")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getItems(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId,
+      @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getItems(token, projectId, versionName);
   }
 
   @GET
@@ -105,18 +116,49 @@ public class ProjectResources {
     return ProjectController.removeCoauthorsFromProject(projectId, token, coauthors.getCoauthors());
   }
 
+  @DELETE
+  @Path("/{projectId}")
+  public Response deleteProject(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.deleteProject(token, projectId);
+  }
+
   @POST
-  @Path("/{projectId}/addFile")
+  @Path("/{projectId}/folder/{folderName}/addFile")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
   @Produces(MediaType.APPLICATION_JSON)
   public Response addFile(@HeaderParam("Authorization") final String authorizationHeader,
-      @PathParam("projectId") final Long projectId, @FormDataParam("folder") final String folderName,
+      @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
       @FormDataParam("description") final String description, @FormDataParam("isPublic") final Boolean isPublic,
       @FormDataParam("file") final InputStream uploadedInputStream,
       @FormDataParam("file") final FormDataContentDisposition fileDetail) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.addFileToProject(projectId, token, folderName, description, isPublic, uploadedInputStream,
         fileDetail);
+  }
+
+  @GET
+  @Path("{projectId}/folder/{folderName}/download")
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Response downloadFolderFromProject(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId,
+      @PathParam("folderName") final String folderName, @QueryParam("version") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.downloadFolderFromProjet(token, projectId, folderName, versionName);
+  }
+
+  @POST
+  @Path("{projectId}/folder/{folderName}/downloadSelected")
+  @Consumes(MediaType.APPLICATION_JSON)
+  @Produces(MediaType.APPLICATION_OCTET_STREAM)
+  public Response downloadFilesSelectedFromFolder(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId,
+      @PathParam("folderName") final String folderName,
+      @QueryParam("version") @DefaultValue("") final String versionName, List<String> filesSelectedNames) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.downloadFilesSelectedFromFolder(token, projectId, folderName,
+        versionName, filesSelectedNames);
   }
 
   @PUT
@@ -217,6 +259,14 @@ public class ProjectResources {
     return ProjectController.getVersions(token, projectId);
   }
 
+  @GET
+  @Path("{projectId}/versionExist")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response projectVersionExits(@PathParam("projectId") final Long projectId,
+      @QueryParam("versionName") final String versionName) {
+    return ProjectController.projectVersionExists(projectId, versionName);
+  }
+
   @POST
   @Path("{projectId}/createVersion")
   @Produces(MediaType.APPLICATION_JSON)
@@ -253,7 +303,7 @@ public class ProjectResources {
     return ProjectController.getHistorialMessages(token, projectId, versionName);
   }
 
-  @POST
+  @GET
   @Path("{projectId}/getShortUrl")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getShortUrl(@HeaderParam("Authorization") final String authorizationHeader,
@@ -262,6 +312,27 @@ public class ProjectResources {
       @QueryParam("versionName") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getShortUrl(token, projectId, folderName, fileName, versionName);
+  }
+
+  @POST
+  @Path("{projectId}/getShortUrl")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getShortUrl(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @QueryParam("folderName") final String folderName,
+      @QueryParam("fileName") final String fileName,
+      @QueryParam("versionName") @DefaultValue("") final String versionName,
+      @QueryParam("shortUrl") final String shortUrl) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getShortUrl(token, projectId, folderName, fileName, versionName, shortUrl);
+  }
+
+  @GET
+  @Path("/{projectId}/isAuthor")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response isAuthor(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.isAuthor(token, projectId);
   }
 
 }

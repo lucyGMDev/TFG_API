@@ -21,10 +21,10 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 @Path("/user")
 public class UserResources {
   @GET
-  @Path("/{userEmail}")
+  @Path("/{username}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response getUser(@PathParam("userEmail") final String userEmail) {
-    return UserController.getUser(userEmail);
+  public Response getUser(@PathParam("username") final String username) {
+    return UserController.getUser(username);
   }
 
   @PUT

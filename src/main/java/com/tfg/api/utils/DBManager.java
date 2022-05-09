@@ -132,6 +132,25 @@ public class DBManager {
     return null;
   }
 
+  public User getUserByUsername(String userName) {
+    String query = "SELECT * FROM users WHERE username = ?";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, userName);
+      ResultSet result = statement.executeQuery();
+      if (result.next()) {
+        User user = new User(result.getString("email"), result.getString("username"), result.getString("firstname"),
+            result.getString("lastname"), result.getDate("created_date"), result.getString("picture_url"));
+        return user;
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
   public Project createProject(ProjectBody projectBody) {
     String query = "INSERT INTO project (name,description,created_date,last_update_date,public,type) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -975,13 +994,13 @@ public class DBManager {
     return false;
   }
 
-  public int addCommentToProject(Long projectId, String commentId, String commentText, String writterEmail,
+  public int addCommentToProject(Long projectId, String commentId, String commentText, String userName,
       String responseCommentId) {
-    String query = "INSERT INTO comment (comment_id, writter_email, comment_text, response_comment_id, project_id, post_date) VALUES(?,?,?,?,?,CURRENT_DATE);";
+    String query = "INSERT INTO comment (comment_id, username, comment_text, response_comment_id, project_id, post_date) VALUES(?,?,?,?,?,CURRENT_DATE);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setString(1, commentId);
-      statement.setString(2, writterEmail);
+      statement.setString(2, userName);
       statement.setString(3, commentText);
       statement.setString(4, responseCommentId);
       statement.setLong(5, projectId);
@@ -1022,7 +1041,7 @@ public class DBManager {
       ResultSet result = statement.executeQuery();
       if (result.next()) {
 
-        return new Comment(result.getString("comment_id"), result.getString("writter_email"),
+        return new Comment(result.getString("comment_id"), result.getString("username"),
             result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
             result.getString("comment_text"), getNumberResponseComment(commentId));
       }
@@ -1045,7 +1064,7 @@ public class DBManager {
       ListComments comments = new ListComments();
       while (result.next()) {
         comments.getComments()
-            .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
+            .add(new Comment(result.getString("comment_id"), result.getString("username"),
                 result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
                 result.getString("comment_text"), getNumberResponseComment(result.getString("comment_id"))));
       }
@@ -1071,7 +1090,7 @@ public class DBManager {
       ListComments comments = new ListComments();
       while (result.next()) {
         comments.getComments()
-            .add(new Comment(result.getString("comment_id"), result.getString("writter_email"),
+            .add(new Comment(result.getString("comment_id"), result.getString("username"),
                 result.getString("response_comment_id"), result.getLong("project_id"), result.getDate("post_date"),
                 result.getString("comment_text"), 0L));
       }

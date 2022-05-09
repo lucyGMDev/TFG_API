@@ -30,14 +30,14 @@ public class UserController {
    * @param userEmail email of the user to get
    * @return
    */
-  public static Response getUser(final String userEmail) {
+  public static Response getUser(final String username) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
-    if (!database.userExistsByEmail(userEmail)) {
+    if (!database.userExistsByUsername(username)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any user with this email\"}").build();
     }
-    User user = database.getUserByEmail(userEmail);
+    User user = database.getUserByUsername(username);
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(user))
         .build();
   }

@@ -8,6 +8,7 @@ import javax.ws.rs.core.Response;
 import com.google.gson.Gson;
 import com.tfg.api.data.Comment;
 import com.tfg.api.data.ListComments;
+import com.tfg.api.data.User;
 import com.tfg.api.data.bodies.CommentBody;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.JwtUtils;
@@ -42,6 +43,8 @@ public class CommentController {
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
+    User user = database.getUserByEmail(userEmail);
+
     if (projectId == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Project id is required\"}").build();
@@ -70,8 +73,8 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
-    if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+    if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
     }
 
@@ -109,6 +112,8 @@ public class CommentController {
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
 
+    User user = database.getUserByEmail(userEmail);
+
     if (!database.projectExitsById(projectId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this ID\"}").build();
@@ -119,8 +124,8 @@ public class CommentController {
           .entity("{\"message\":\"There are any comment on this project with this ID\"}").build();
     }
 
-    if (!ProjectUtils.userCanAccessProject(projectId, userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+    if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You can not access this project\"}").build();
     }
 
@@ -153,11 +158,12 @@ public class CommentController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
+    User user = database.getUserByEmail(userEmail);
     if (comment.getCommentText() == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Body of comment is required\"}").build();
     }
-    if (comment.getWritterEmail() == null) {
+    if (comment.getUsername() == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Owner email of comment is required\"}").build();
     }
@@ -165,7 +171,7 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Project id of comment is required\"}").build();
     }
-    if (!comment.getWritterEmail().equals(userEmail)) {
+    if (!comment.getUsername().equals(user.getUsername())) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error on user validation\"}").build();
     }
@@ -187,14 +193,14 @@ public class CommentController {
       }
     }
 
-    if (!ProjectUtils.userCanAccessProject(comment.getProjectId(), userEmail)) {
-      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+    if (!ProjectUtils.userCanAccessProject(comment.getProjectId(), user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
     }
 
     String commentId = UUID.randomUUID().toString();
     if (database.addCommentToProject(comment.getProjectId(), commentId, comment.getCommentText(),
-        comment.getWritterEmail(), comment.getResponseCommentId()) == -1) {
+        comment.getUsername(), comment.getResponseCommentId()) == -1) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while post comment\"}").build();
     }
@@ -229,7 +235,7 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error with JWT\"}").build();
     }
-
+    User user = database.getUserByEmail(userEmail);
     if (!database.projectExitsById(projectId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are any project with this id\"}").build();
@@ -240,7 +246,7 @@ public class CommentController {
           .entity("{\"message\":\"There are any comment with this id on this project\"}").build();
     }
 
-    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to edit this project\"}").build();
     }
