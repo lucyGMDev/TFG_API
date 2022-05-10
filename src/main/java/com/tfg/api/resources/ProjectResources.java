@@ -25,7 +25,6 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 
 @Path("/project")
 public class ProjectResources {
-  // TODO: Hacer methodo para descargar un solo proyecto
   @GET
   @Path("/{projectId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -33,6 +32,15 @@ public class ProjectResources {
       @PathParam("projectId") final Long projectId) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getProject(token, projectId);
+  }
+
+  @GET
+  @Path("/{projectId}/download")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response downloadProject(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.downloadProject(token, projectId, versionName);
   }
 
   @GET

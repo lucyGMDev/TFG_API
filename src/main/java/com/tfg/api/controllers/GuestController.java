@@ -150,7 +150,7 @@ public class GuestController {
           return false;
         }).forEach((File directory) -> {
           try {
-            FileList files = FolderUtils.getFilesFromFolder(projectId, directory.getName());
+            FileList files = FolderUtils.getPublicFilesFromFolder(projectId, directory.getName());
             final String directoryName = directory.getName();
             files.getFiles().stream().filter(file -> file.getIsPublic()).forEach(
                 (FileData fileData) -> {
@@ -435,7 +435,7 @@ public class GuestController {
 
     FileList files;
     try {
-      files = FolderUtils.getFilesFromFolder(projectId, folderName);
+      files = FolderUtils.getPublicFilesFromFolder(projectId, folderName);
     } catch (Exception e) {
       e.printStackTrace();
       try {

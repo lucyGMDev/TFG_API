@@ -62,7 +62,7 @@ public class FolderUtils {
     return fileList;
   }
 
-  public static FileList getFilesFromFolder(Long projectId, String folderName) throws Exception {
+  public static FileList getPublicFilesFromFolder(Long projectId, String folderName) throws Exception {
     Dotenv dotenv = Dotenv.load();
     String folderPath = dotenv.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName;
     File folder = new File(folderPath);
@@ -129,7 +129,8 @@ public class FolderUtils {
 
   public static Long getNumberFilesPublic(Long projectId, String folderName) throws Exception {
 
-    return getFilesFromFolder(projectId, folderName).getFiles().stream().filter(file -> file.getIsPublic()).count();
+    return getPublicFilesFromFolder(projectId, folderName).getFiles().stream().filter(file -> file.getIsPublic())
+        .count();
   }
 
   public static Long getNumberFiles(Long projectId, String folderName) throws Exception {

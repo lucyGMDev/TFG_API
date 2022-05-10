@@ -83,6 +83,157 @@ public class ProjectController {
         .build();
   }
 
+  public static Response downloadProject(final String token, final long projectId, final String versionName) {
+
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    String userName;
+    try {
+      userName = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}")
+          .build();
+    }
+    User user = database.getUserByEmail(userName);
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this project\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && (!database.versionIsPublic(projectId, versionName)
+            && !ProjectUtils.userIsAuthor(projectId, user.getUsername()))) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to download this version of the project\"}").build();
+    }
+
+    String folderPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    File projectFolder = new File(folderPath);
+    ProjectRepository repository;
+    String versionId = versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+    try {
+      repository = new ProjectRepository(folderPath);
+      repository.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading project\"}").build();
+    }
+    Arrays.stream(projectFolder.listFiles()).filter(file -> file.getName().matches(".*\\.zip$"))
+        .forEach((File file) -> {
+          if (!file.delete()) {
+            throw new RuntimeException();
+          }
+        });
+    Project project = database.getProjectById(projectId);
+    String projectZipPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
+        + File.separator + project.getName() + ".zip";
+
+    try (ZipOutputStream zipOutputStream = new ZipOutputStream(new FileOutputStream(projectZipPath))) {
+      List<File> folders = Arrays.stream(projectFolder.listFiles())
+          .filter(file -> FolderUtils.folderNameIsValid(file.getName()) && file.isDirectory())
+          .collect(Collectors.toList());
+      try {
+        folders.stream().filter((File file) -> {
+          FolderMetadata folderMetadata;
+          try {
+            folderMetadata = FolderUtils.getMetadataFolder(projectId, file.getName());
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+          if (ProjectUtils.userIsAuthor(projectId, user.getUsername()) || folderMetadata.getIsPublic()) {
+            folderMetadata.incrementNumberDownloads();
+            try {
+              String version = repository.createMetadataFolder(jsonManager.toJson(folderMetadata), file.getName());
+              if (versionName.equals("")
+                  || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+                database.addCommitProject(projectId, version);
+              } else {
+                database.updateVersionCommit(projectId, versionName, version);
+              }
+            } catch (IOException | GitAPIException e) {
+              throw new RuntimeException(e);
+            }
+            return true;
+          }
+          return false;
+        }).forEach((File directory) -> {
+          try {
+            FileList files = FolderUtils.getFilesFromFolder(projectId, directory.getName(),
+                ProjectUtils.userIsAuthor(projectId, user.getUsername()));
+            final String directoryName = directory.getName();
+            files.getFiles().stream()
+                .filter(file -> file.getIsPublic() || ProjectUtils.userIsAuthor(projectId, user.getUsername())).forEach(
+                    (FileData fileData) -> {
+                      File file = new File(
+                          environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator
+                              + fileData.getDirectoryName() + File.separator + fileData.getFileName());
+                      try {
+                        zipOutputStream.putNextEntry(new ZipEntry(directoryName + File.separator + file.getName()));
+                        FileInputStream fis = new FileInputStream(file);
+                        byte[] fileBytes = new byte[1024];
+                        int length;
+                        while ((length = fis.read(fileBytes)) >= 0) {
+                          zipOutputStream.write(fileBytes, 0, length);
+                        }
+                        fis.close();
+                        zipOutputStream.closeEntry();
+                      } catch (IOException e) {
+                        throw new RuntimeException(e);
+                      }
+                    });
+          } catch (Exception e) {
+            throw new RuntimeException(e);
+          }
+        });
+      } catch (RuntimeException e) {
+        try {
+          repository.changeVersion(versionId);
+          if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+            database.addCommitProject(projectId, versionId);
+          } else {
+            database.updateVersionCommit(projectId, versionName, versionId);
+          }
+        } catch (GitAPIException e1) {
+          e1.printStackTrace();
+        }
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while downloading project\"}").build();
+      }
+    } catch (IOException e) {
+      try {
+        repository.changeVersion(versionId);
+        if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+          database.addCommitProject(projectId, versionId);
+        } else {
+          database.updateVersionCommit(projectId, versionName, versionId);
+        }
+      } catch (GitAPIException e1) {
+        e1.printStackTrace();
+      }
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading project\"}").build();
+    }
+
+    File zipFile = new File(projectZipPath);
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_OCTET_STREAM)
+        .header("Content-Disposition", String.format("attachment; filename=\"%s.zip\"", project.getName()))
+        .entity((Object) zipFile).build();
+
+  }
+
   public static Response getUserProjects(String token, String ownerProjects) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
