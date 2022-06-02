@@ -18,6 +18,15 @@ import com.tfg.api.data.bodies.CommentBody;
 @Path("/comment")
 public class CommentResources {
 
+  /**
+   * Get a determinated number of comments from a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param offset              Offset of the to start to get comments
+   * @param numberCommentsLoad  Number of comments to load
+   * @return
+   */
   @GET
   @Path("/{projectId}/getComments")
   @Produces(MediaType.APPLICATION_JSON)
@@ -28,6 +37,16 @@ public class CommentResources {
     return CommentController.getComments(token, projectId, offset, numberCommentsLoad);
   }
 
+  /**
+   * Get a determinated number of responses from a comment
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param commentId           Identifier of the comment
+   * @param offset              Number of response to start to get comments
+   * @param numberCommentsLoad  Number of response to load
+   * @return
+   */
   @GET
   @Path("/{projectId}/getResponses/{commentId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -38,6 +57,13 @@ public class CommentResources {
     return CommentController.getCommentResponses(token, projectId, commentId, offset, numberCommentsLoad);
   }
 
+  /**
+   * Post a comment on a determinated project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param comment             Information about the comment
+   * @return
+   */
   @POST
   @Path("/postComment")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -48,6 +74,14 @@ public class CommentResources {
     return CommentController.postComment(token, comment);
   }
 
+  /**
+   * Delete a comment on your project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param commentId           Identifier of the comment
+   * @return
+   */
   @DELETE
   @Path("/deleteComment/{projectId}/{commentId}")
   @Produces(MediaType.APPLICATION_JSON)

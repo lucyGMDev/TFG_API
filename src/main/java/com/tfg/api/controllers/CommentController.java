@@ -73,9 +73,16 @@ public class CommentController {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
-    if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
-      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"You have not permission to post a comment on this project\"}").build();
+    if (token.equals("")) {
+      if (!database.projectIsPublic(projectId)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not access to this project\"}").build();
+      }
+    } else {
+      if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not access to this project\"}").build();
+      }
     }
 
     ListComments comments = database.getComments(projectId, offset, numberCommentsLoad);

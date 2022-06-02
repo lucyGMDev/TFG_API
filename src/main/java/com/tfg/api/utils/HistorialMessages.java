@@ -16,7 +16,10 @@ public class HistorialMessages {
   private String actor;
   private String object;
   private Date changeDate;
+  private Long projectId;
   private String folder;
+  private String file;
+  private String versionName;
 
   public HistorialMessages() {
   }
@@ -74,34 +77,60 @@ public class HistorialMessages {
     this.folder = folder;
   }
 
+  public Long getProjectId() {
+    return projectId;
+  }
+
+  public void setProjectId(Long projectId) {
+    this.projectId = projectId;
+  }
+
+  public String getFile() {
+    return file;
+  }
+
+  public void setFile(String file) {
+    this.file = file;
+  }
+
+  public String getVersionName() {
+    return versionName;
+  }
+
+  public void setVersionName(String versionName) {
+    this.versionName = versionName;
+  }
+
   @Override
   public String toString() {
-    String historialMessage="";
-    if(operation.equals(Operations.CreateProject)){
-      historialMessage= String.format("%s has created the project on %s", this.actor, this.changeDate);
+    String historialMessage = "";
+    if (operation.equals(Operations.CreateProject)) {
+      historialMessage = String.format("%s has created the project", this.actor);
     }
-    if(operation.equals(Operations.CoauthorAdded)){
-      historialMessage = String.format("%s has added %s to the project on %s", this.actor, this.object,this.changeDate);
+    if (operation.equals(Operations.CoauthorAdded)) {
+      historialMessage = String.format("%s has added %s to the project", this.actor, this.object);
     }
-    if(operation.equals(Operations.UpdateProject)){
-      historialMessage = String.format("%s has update the project on %s", this.actor, this.changeDate);
+    if (operation.equals(Operations.UpdateProject)) {
+      historialMessage = String.format("%s has update the project", this.actor);
     }
-    if(operation.equals(Operations.CoauthorRemoved)){
-      historialMessage = String.format("%s has removed %s from the project on %s",this.actor, this.object, this.changeDate);
+    if (operation.equals(Operations.CoauthorRemoved)) {
+      historialMessage = String.format("%s has removed %s from the project", this.actor, this.object);
     }
-    if(operation.equals(Operations.UploadFile)){
-      historialMessage = String.format("%s has added the file %s to the project, on the folder %s on %s", this.actor, this.object, this.folder, this.changeDate);
+    if (operation.equals(Operations.UploadFile)) {
+      historialMessage = String.format("%s has added the file %s to the project, on the item %s", this.actor,
+          this.object, this.folder);
     }
-    if(operation.equals(Operations.UpdateFile)){
-      historialMessage = String.format("%s has updated file %s on the folder %s on %s",this.actor, this.object, this.folder, this.changeDate);
+    if (operation.equals(Operations.UpdateFile)) {
+      historialMessage = String.format("%s has updated file %s on the item %s", this.actor, this.object,
+          this.folder);
     }
-    if(operation.equals(Operations.RemoveFile)){
-      historialMessage = String.format("%s has removed the file %s from the folder %s on %s",this.actor, this.object, this.folder, this.changeDate);
+    if (operation.equals(Operations.RemoveFile)) {
+      historialMessage = String.format("%s has removed the file %s from the item %s", this.actor, this.object,
+          this.folder);
     }
-    if(operation.equals(Operations.CreateVerion)){
-      historialMessage = String.format("%s has created the version %s on this project on %s",this.actor, this.object, this.changeDate);
+    if (operation.equals(Operations.CreateVerion)) {
+      historialMessage = String.format("%s has created the version %s on this project", this.actor, this.object);
     }
-
 
     return historialMessage;
   }

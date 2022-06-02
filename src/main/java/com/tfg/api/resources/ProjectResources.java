@@ -132,6 +132,16 @@ public class ProjectResources {
     return ProjectController.deleteProject(token, projectId);
   }
 
+  @GET
+  @Path("/{projectId}/folder/{folderName}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getItem(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
+      @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.getItem(token, projectId, folderName, versionName);
+  }
+
   @POST
   @Path("/{projectId}/folder/{folderName}/addFile")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -139,10 +149,12 @@ public class ProjectResources {
   public Response addFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
       @FormDataParam("description") final String description, @FormDataParam("isPublic") final Boolean isPublic,
+      @FormDataParam("showHistory") final Boolean showHistory,
       @FormDataParam("file") final InputStream uploadedInputStream,
       @FormDataParam("file") final FormDataContentDisposition fileDetail) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
-    return ProjectController.addFileToProject(projectId, token, folderName, description, isPublic, uploadedInputStream,
+    return ProjectController.addFileToProject(projectId, token, folderName, description, isPublic, showHistory,
+        uploadedInputStream,
         fileDetail);
   }
 
@@ -180,12 +192,23 @@ public class ProjectResources {
     return ProjectController.updateVisibilityFolder(token, projectId, folderName, isPublic, versionName);
   }
 
+  @PUT
+  @Path("/{projectId}/folder/{folderName}/{showHistory}/changeShowHistory")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateFolderHistoryVisibility(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
+      @PathParam("showHistory") final Boolean showHistory,
+      @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.updateShowHistoryFolder(token, projectId, folderName, showHistory, versionName);
+  }
+
   @GET
   @Path("/{projectId}/folder/{folderName}/getFiles")
   @Produces(MediaType.APPLICATION_JSON)
   public Response getFilesFromFolder(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
-      @QueryParam("versionName") @DefaultValue("") final String versionName) {
+      @QueryParam("version") @DefaultValue("") final String versionName) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getFilesFromFolder(token, projectId, folderName, versionName);
   }
@@ -202,7 +225,7 @@ public class ProjectResources {
   }
 
   @GET
-  @Path("/{projectId}/folder/{folderName}/file/{filename}/downloadFile")
+  @Path("/{projectId}/folder/{folderName}/file/{filename}/download")
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
   public Response downloadFile(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") String folderName,
@@ -223,6 +246,30 @@ public class ProjectResources {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.updateFile(token, projectId, folderName, fileName, description, isPublic,
         uploadedInputStream, fileDetail);
+  }
+
+  @PUT
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}/changeVisibility/{isPublic}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateFileVisibility(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
+      @PathParam("fileName") final String fileName,
+      @PathParam("isPublic") final Boolean isPublic,
+      @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.updateFileVisibility(token, projectId, folderName, fileName, isPublic, versionName);
+  }
+
+  @PUT
+  @Path("/{projectId}/folder/{folderName}/file/{fileName}/changeShowHistory/{showHistory}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response updateFolderHistoryVisibility(@HeaderParam("Authorization") final String authorizationHeader,
+      @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
+      @PathParam("fileName") final String fileName,
+      @PathParam("showHistory") final Boolean showHistory,
+      @QueryParam("version") @DefaultValue("") final String versionName) {
+    String token = authorizationHeader.substring("Bearer".length()).trim();
+    return ProjectController.updateFileShowHistory(token, projectId, folderName, fileName, showHistory, versionName);
   }
 
   @DELETE
@@ -293,6 +340,14 @@ public class ProjectResources {
     return ProjectController.deleteVersion(token, projectId, versionName);
   }
 
+  @GET
+  @Path("{projectId}/getVersionFromName/{versionName}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getVersonFromName(@PathParam("projectId") final Long projectId,
+      @PathParam("versionName") final String versionName) {
+    return ProjectController.getVersionFromName(projectId, versionName);
+  }
+
   @POST
   @Path("{projectId}/rateProject")
   @Produces(MediaType.APPLICATION_JSON)
@@ -332,6 +387,13 @@ public class ProjectResources {
       @QueryParam("shortUrl") final String shortUrl) {
     String token = authorizationHeader.substring("Bearer".length()).trim();
     return ProjectController.getShortUrl(token, projectId, folderName, fileName, versionName, shortUrl);
+  }
+
+  @GET
+  @Path("/shortUrl/{shortUrl}")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response getElementFromUrl(@PathParam("shortUrl") final String shortUrl) throws Exception {
+    return ProjectController.getElementByShortUrl(shortUrl);
   }
 
   @GET

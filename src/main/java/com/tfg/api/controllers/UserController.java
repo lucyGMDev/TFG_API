@@ -35,7 +35,7 @@ public class UserController {
     Gson jsonManager = new Gson();
     if (!database.userExistsByUsername(username)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
-          .entity("{\"message\":\"There are not any user with this email\"}").build();
+          .entity("{\"message\":\"There are not any user with this username\"}").build();
     }
     User user = database.getUserByUsername(username);
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(user))
@@ -184,5 +184,11 @@ public class UserController {
       return Response.status(Response.Status.BAD_REQUEST).build();
     }
     return Response.status(Response.Status.OK).build();
+  }
+
+  public static Response userExistsEmail(String userEmail) {
+    DBManager database = new DBManager();
+    Boolean exists = database.userExistsByEmail(userEmail);
+    return Response.status(Response.Status.OK).entity(String.format("{\"exists\":%b}", exists)).build();
   }
 }

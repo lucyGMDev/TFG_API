@@ -176,9 +176,12 @@ public class ProjectRepository {
       throws NoFilepatternException, GitAPIException {
     File file = new File(path);
     if (file.exists()) {
+      System.out.println("Inicio borrado");
       file.delete();
+      System.out.println("Borrado completado");
       getGit().add().addFilepattern(".").call();
       RevCommit commit = getGit().commit().setMessage(commitMessage).call();
+      System.out.println("Commit generado");
       return commit.getName();
     }
     return null;

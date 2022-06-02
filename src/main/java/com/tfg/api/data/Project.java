@@ -11,6 +11,7 @@ public class Project {
   private Date lastUpdateName;
   private String lastCommitId;
   private Boolean isPublic;
+  private Boolean showHistory;
   private String[] coauthors = null;
   private String[] type;
   private Float avgScore;
@@ -19,7 +20,7 @@ public class Project {
   }
 
   public Project(Long project_id, String name, String description, Date createdDate, Date lastUpdateName,
-      String lastCommitId, Boolean isPublic, String[] coauthors, String[] type, Float avgScore) {
+      String lastCommitId, Boolean isPublic, Boolean showHistory, String[] coauthors, String[] type, Float avgScore) {
     this.project_id = project_id;
     this.name = name;
     this.description = description;
@@ -27,14 +28,13 @@ public class Project {
     this.lastUpdateName = lastUpdateName;
     this.lastCommitId = lastCommitId;
     this.isPublic = isPublic;
+    this.showHistory = showHistory;
     this.coauthors = coauthors;
     this.type = type;
-    if(avgScore!=null){
+    if (avgScore != null) {
       this.avgScore = BigDecimal.valueOf(avgScore).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue();
     }
   }
-
-
 
   public Long getProject_id() {
     return project_id;
@@ -92,6 +92,14 @@ public class Project {
     this.isPublic = isPublic;
   }
 
+  public Boolean getShowHistory() {
+    return showHistory;
+  }
+
+  public void setShowHistory(Boolean showHistory) {
+    this.showHistory = showHistory;
+  }
+
   public String[] getCoauthors() {
     return coauthors;
   }
@@ -113,11 +121,9 @@ public class Project {
   }
 
   public void setAvgScore(Float avgScore) {
-    avgScore = avgScore != null ? BigDecimal.valueOf(avgScore).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue() : null;
+    avgScore = avgScore != null ? BigDecimal.valueOf(avgScore).setScale(1, BigDecimal.ROUND_HALF_UP).floatValue()
+        : null;
     this.avgScore = avgScore;
   }
 
-  
-
-  
 }

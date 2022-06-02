@@ -27,6 +27,7 @@ import com.tfg.api.data.VersionList;
 import com.tfg.api.utils.DBManager;
 import com.tfg.api.utils.FileUtils;
 import com.tfg.api.utils.FolderUtils;
+import com.tfg.api.utils.HistorialMessages;
 import com.tfg.api.utils.ProjectRepository;
 import com.tfg.api.utils.ProjectUtils;
 import com.tfg.api.utils.VersionsUtils;
@@ -214,19 +215,18 @@ public class GuestController {
   /**
    * Get all publics projects of an author
    * 
-   * @param userEmail of the author
+   * @param username of the author
    * @return Response with all publics projects of the author with the email given
    */
-  public static Response getUserProjects(final String userEmail) {
+  public static Response getUserProjects(final String username) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
 
-    if (!database.userExistsByEmail(userEmail)) {
+    if (!database.userExistsByUsername(username)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any user with this email\"}").build();
     }
-
-    ProjectList projects = database.getProjectsFromUser(userEmail);
+    ProjectList projects = database.getProjectsFromUser(username);
     if (projects == null) {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are some problem while loading projects\"}").build();
@@ -937,4 +937,290 @@ public class GuestController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(versions))
         .build();
   }
+
+  /**
+   * Function to get the history of a public project
+   * 
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return A list with history messages
+   */
+  public static Response getHistorialMessages(final Long projectId, final String versionName) {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to see the historial on this project\"}").build();
+    }
+
+    if (!versionName.equals("") && !versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+        && !database.versionExistsOnProject(projectId, versionName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    }
+    ArrayList<HistorialMessages> historial = database.getHistorialProject(projectId);
+    if (historial == null) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting historial changes\"}").build();
+    }
+    ArrayList<HistorialMessages> historialFiltered = historial.stream().filter(historialMessage -> {
+      if (historialMessage.getFile() != null && historialMessage.getFolder() != null
+          && historialMessage.getProjectId() != null) {
+        try {
+          FileData fileMetadata = FileUtils.getMetadataFile(historialMessage.getProjectId(),
+              historialMessage.getFolder(), historialMessage.getFile());
+          return fileMetadata.getShowHistorial();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      if (historialMessage.getFile() == null && historialMessage.getFolder() != null
+          && historialMessage.getProjectId() != null) {
+        try {
+          FolderMetadata folderMetadata = FolderUtils.getMetadataFolder(historialMessage.getProjectId(),
+              historialMessage.getFolder());
+          return folderMetadata.getShowHistory();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      if (historialMessage.getFile() == null && historialMessage.getFolder() == null
+          && historialMessage.getProjectId() != null) {
+        try {
+          Project project = database.getProjectById(historialMessage.getProjectId());
+          return project.getShowHistory();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      return false;
+    }).collect(Collectors.toCollection(ArrayList::new));
+
+    ArrayList<String> result = historialFiltered.stream().map(singleHistorial -> singleHistorial.toString())
+        .collect(Collectors.toCollection(ArrayList::new));
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity(String.format("{\"historial\": %s, \"historialMetaData\":%s}", jsonManager.toJson(result),
+            jsonManager.toJson(historialFiltered)))
+        .build();
+  }
+
+  /**
+   * Download a determinated file from a version
+   * 
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
+  public static Response downloadFileFromVersion(final Long projectId, final String folderName,
+      final String filename, final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"The folder name is not valid\"}").build();
+    }
+
+    String commitIdVersion;
+    try {
+      commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName);
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You hve not permission to access this version\"}").build();
+    }
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project;
+    try {
+      project = new ProjectRepository(projectPath);
+      project.changeVersion(commitIdVersion);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error whule getting file\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission download this file\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while downloading this file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, filename)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity(
+              "{\"message\":\"There are not any file with this name on this project and this folder on this version\"}")
+          .build();
+    }
+
+    try {
+      if (!FileUtils.fileIsPublic(projectId, folderName, filename)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    String filePath = projectPath + File.separator + folderName + File.separator + filename;
+    File file = new File(filePath);
+
+    FileData fileMetadata;
+    try {
+      fileMetadata = FileUtils.getMetadataFile(projectId, folderName, filename);
+      fileMetadata.incrementNumberDownloads();
+      String commitId = project.createMetadataFile(jsonManager.toJson(fileMetadata), folderName, filename);
+      if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+        database.addCommitProject(projectId, commitId);
+      } else {
+        database.updateVersionCommit(projectId, versionName, commitId);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object) file)
+        .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
+  }
+
+  /**
+   * Get metadata info from a file on a determinated version
+   * 
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
+  public static Response getFileFromVersion(Long projectId, String folderName, String filename,
+      String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any project with this id\"}").build();
+    }
+
+    if (!database.projectIsPublic(projectId)) {
+      return Response.status(Response.Status.UNAUTHORIZED)
+          .entity("{\"message\":\"You have not permission to access this project\"}").type(MediaType.APPLICATION_JSON)
+          .build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are any folder with this name on this project\"}").build();
+    }
+
+    String commitIdVersion;
+    try {
+      commitIdVersion = ProjectUtils.getCommitIdVersion(projectId, versionName);
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+
+    String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository project = null;
+
+    try {
+      project = new ProjectRepository(path);
+      project.changeVersion(commitIdVersion);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName)) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this file\"}").build();
+      }
+    } catch (Exception e1) {
+      e1.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, filename)) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"The current file does not exist\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    try {
+      if (!FileUtils.fileIsPublic(projectId, folderName, filename)) {
+        return Response.status(Response.Status.UNAUTHORIZED)
+            .entity("{\"message\":\"You have not permission to access this file\"}").type(MediaType.APPLICATION_JSON)
+            .build();
+      }
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+          .entity("{\"message\":\"Error while getting file\"}").type(MediaType.APPLICATION_JSON).build();
+    }
+
+    FileData metadataFile;
+    try {
+      metadataFile = FileUtils.getMetadataFile(projectId, folderName, filename);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error getting file \"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
+    String lastVersionId = database.getLastCommitProject(projectId);
+    try {
+      project.changeVersion(lastVersionId);
+    } catch (GitAPIException e) {
+      e.printStackTrace();
+    }
+    return Response.status(Response.Status.OK).entity(jsonManager.toJson(metadataFile)).type(MediaType.APPLICATION_JSON)
+        .build();
+  }
+
 }

@@ -9,10 +9,12 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 
+import com.google.gson.Gson;
 import com.tfg.api.data.Comment;
 import com.tfg.api.data.ListComments;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
+import com.tfg.api.data.ShortUrlResource;
 import com.tfg.api.data.User;
 import com.tfg.api.data.Version;
 import com.tfg.api.data.VersionList;
@@ -70,11 +72,12 @@ public class DBManager {
     return null;
   }
 
-  public User insertUser(String email) {
-    String query = "INSERT INTO users (email, created_date) VALUES (?,CURRENT_DATE)";
+  public User insertUser(String email, String userName) {
+    String query = "INSERT INTO users (email,username, created_date) VALUES (?,?,CURRENT_DATE)";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, email);
+      statement.setString(2, username);
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
@@ -152,7 +155,7 @@ public class DBManager {
   }
 
   public Project createProject(ProjectBody projectBody) {
-    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,type) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?);";
+    String query = "INSERT INTO project (name,description,created_date,last_update_date,public,type,show_history) VALUES(?,?,CURRENT_DATE,CURRENT_DATE,?,?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, projectBody.getName());
@@ -160,6 +163,7 @@ public class DBManager {
       statement.setBoolean(3, projectBody.getIsPublic());
       Array typeArray = conn.createArrayOf("text", projectBody.getType());
       statement.setArray(4, typeArray);
+      statement.setBoolean(5, projectBody.getShowHistory());
       int rowsInserted = statement.executeUpdate();
       if (rowsInserted == 0) {
         return null;
@@ -170,7 +174,8 @@ public class DBManager {
         String[] type = (String[]) typeArray.getArray();
         Project project = new Project(result.getLong("project_id"), result.getString("name"),
             result.getString("description"), result.getDate("created_date"), result.getDate("last_update_date"),
-            result.getString("last_commit_id"), result.getBoolean("public"), null, type, null);
+            result.getString("last_commit_id"), result.getBoolean("public"), result.getBoolean("show_history"), null,
+            type, null);
         return project;
       }
     } catch (SQLException e) {
@@ -271,7 +276,8 @@ public class DBManager {
         String[] type = typeArray == null ? null : (String[]) typeArray.getArray();
         return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
             result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-            result.getBoolean("public"), getProjectCoauthors(projectId), type, result.getFloat("score"));
+            result.getBoolean("public"), result.getBoolean("show_history"), getProjectCoauthors(projectId), type,
+            result.getFloat("score"));
       }
     } catch (SQLException e) {
       System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
@@ -295,7 +301,8 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types,
+                result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -327,7 +334,8 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types,
+                result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -363,7 +371,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, score));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types, score));
       }
       return projects;
     } catch (SQLException e) {
@@ -396,7 +404,8 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types,
+                result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -433,7 +442,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, score));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types, score));
       }
       return projects;
     } catch (SQLException e) {
@@ -465,7 +474,8 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types,
+                result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -500,7 +510,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, score));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types, score));
       }
       return projects;
     } catch (SQLException e) {
@@ -532,7 +542,8 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, result.getFloat("score")));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types,
+                result.getFloat("score")));
       }
       return projects;
     } catch (SQLException e) {
@@ -568,7 +579,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, score));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types, score));
       }
       return projects;
     } catch (SQLException e) {
@@ -597,7 +608,7 @@ public class DBManager {
         projects.getProjectList()
             .add(new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
                 result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-                result.getBoolean("public"), coauthors, types, score));
+                result.getBoolean("public"), result.getBoolean("show_history"), coauthors, types, score));
       }
       return projects;
     } catch (SQLException e) {
@@ -610,7 +621,7 @@ public class DBManager {
   }
 
   public Project updateProject(Long projectId, Project project) {
-    String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=?,type=? WHERE project_id=?;";
+    String query = "UPDATE project SET name=?,description=?,last_update_date=CURRENT_DATE,public=?,type=?,show_history=? WHERE project_id=?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setString(1, project.getName());
@@ -618,7 +629,8 @@ public class DBManager {
       statement.setBoolean(3, project.getIsPublic());
       Array typeArray = conn.createArrayOf("text", project.getType());
       statement.setArray(4, typeArray);
-      statement.setLong(5, projectId);
+      statement.setBoolean(5, project.getShowHistory());
+      statement.setLong(6, projectId);
 
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
@@ -629,7 +641,8 @@ public class DBManager {
           Float scoreProject = this.getScoreFromProject(result.getLong("project_id"));
           return new Project(result.getLong("project_id"), result.getString("name"), result.getString("description"),
               result.getDate("created_date"), result.getDate("last_update_date"), result.getString("last_commit_id"),
-              result.getBoolean("public"), getProjectCoauthors(projectId), type, scoreProject);
+              result.getBoolean("public"), result.getBoolean("show_history"), getProjectCoauthors(projectId), type,
+              scoreProject);
         }
       }
 
@@ -703,23 +716,6 @@ public class DBManager {
       statement.setFloat(1, score);
       statement.setLong(2, projectId);
       statement.setString(3, userEmail);
-      int numRows = statement.executeUpdate();
-      if (numRows >= 0) {
-        return numRows;
-      }
-    } catch (SQLException e) {
-      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    return -1;
-  }
-
-  public int removeProject(Long projectId) {
-    String query = "DELETE FROM project WHERE project_id=?;";
-    try (Connection conn = DriverManager.getConnection(url, username, password);
-        PreparedStatement statement = conn.prepareStatement(query)) {
-      statement.setLong(1, projectId);
       int numRows = statement.executeUpdate();
       if (numRows >= 0) {
         return numRows;
@@ -957,6 +953,25 @@ public class DBManager {
     return null;
   }
 
+  public Version getVersionFromName(final Long projectId, final String versionName) {
+    String query = "SELECT * FROM project_version WHERE project_id = ? AND name = ?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query);) {
+      statement.setLong(1, projectId);
+      statement.setString(2, versionName);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        return new Version(rs.getLong("project_id"), rs.getString("version_commit"), rs.getString("name"),
+            rs.getBoolean("public"));
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
   public int updateVersionCommit(final Long projectId, final String versionName, final String commitId) {
     String query = "UPDATE project_version SET version_commit = ? WHERE project_id = ? AND name = ?;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
@@ -1122,13 +1137,16 @@ public class DBManager {
     return -1;
   }
 
-  public Long addChangeMessageProject(final Long projectId, final String versionName, final String changeMessage) {
-    String query = "INSERT INTO project_changes (project_id,version_name,change_message) VALUES(?,?,?);";
+  public Long addChangeMessageProject(final Long projectId, final String versionName, final String changeMessage,
+      final String itemName, final String fileName) {
+    String query = "INSERT INTO project_changes (project_id,version_name,change_message,item_name,file_name) VALUES(?,?,?,?,?);";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query, Statement.RETURN_GENERATED_KEYS);) {
       statement.setLong(1, projectId);
       statement.setString(2, versionName);
       statement.setString(3, changeMessage);
+      statement.setString(4, itemName);
+      statement.setString(5, fileName);
       int numRows = statement.executeUpdate();
       if (numRows > 0) {
         ResultSet result = statement.getGeneratedKeys();
@@ -1160,11 +1178,42 @@ public class DBManager {
     return -1;
   }
 
-  public ArrayList<String> getHistorialProject(final Long projectId) {
-    String query = "SELECT change_message FROM project_changes WHERE project_id=? AND version_name IS NULL ORDER BY change_date DESC;";
+  public ArrayList<HistorialMessages> getHistorialProject(final Long projectId) {
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+    String currentVersion = environmentVariablesManager.get("CURRENT_VERSION_NAME");
+    String query = "SELECT * FROM project_changes WHERE project_id=? AND (version_name IS NULL OR version_name= ?)  ORDER BY change_date DESC;";
     try (Connection conn = DriverManager.getConnection(url, username, password);
         PreparedStatement statement = conn.prepareStatement(query)) {
       statement.setLong(1, projectId);
+      statement.setString(2, currentVersion);
+      ResultSet result = statement.executeQuery();
+      ArrayList<HistorialMessages> historial = new ArrayList<HistorialMessages>();
+      while (result.next()) {
+        HistorialMessages message = jsonManager.fromJson(result.getString("change_message"), HistorialMessages.class);
+        message.setProjectId(result.getLong("project_id"));
+        message.setFolder(result.getString("item_name"));
+        message.setFile(result.getString("file_name"));
+        message.setVersionName(result.getString("version_name"));
+        historial.add(message);
+      }
+      return historial;
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
+  }
+
+  public ArrayList<String> getHistorialProjectFromVersion(final Long projectId, final String versionName) {
+    Dotenv environmentVariablesManager = Dotenv.load();
+    String currentVersion = environmentVariablesManager.get("CURRENT_VERSION_NAME");
+    String query = "SELECT change_message FROM project_changes WHERE project_id=? &&  version_name= ?  ORDER BY change_date DESC;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setLong(1, projectId);
+      statement.setString(2, currentVersion);
       ResultSet result = statement.executeQuery();
       ArrayList<String> historial = new ArrayList<String>();
       while (result.next()) {
@@ -1262,5 +1311,23 @@ public class DBManager {
       e.printStackTrace();
     }
     return -1;
+  }
+
+  public ShortUrlResource getShortUrlResource(final String shortUrl) {
+    String query = "SELECT * FROM short_url WHERE short_url=?;";
+    try (Connection conn = DriverManager.getConnection(url, username, password);
+        PreparedStatement statement = conn.prepareStatement(query)) {
+      statement.setString(1, shortUrl);
+      ResultSet rs = statement.executeQuery();
+      if (rs.next()) {
+        return new ShortUrlResource(rs.getLong("project_id"), rs.getString("folder_name"), rs.getString("file_name"),
+            rs.getString("version_name"));
+      }
+    } catch (SQLException e) {
+      System.err.format("SQL State: %s\n%s", e.getSQLState(), e.getMessage());
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return null;
   }
 }

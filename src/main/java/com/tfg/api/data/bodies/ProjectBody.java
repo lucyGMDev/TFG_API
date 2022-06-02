@@ -4,17 +4,19 @@ public class ProjectBody {
   private String name;
   private String description;
   private Boolean isPublic;
+  private Boolean showHistory;
   private String[] coauthors;
   private String[] type;
 
   public ProjectBody() {
   }
 
-  public ProjectBody(String name, String description, Boolean isPublic, String[] coauthors,
+  public ProjectBody(String name, String description, Boolean isPublic, Boolean showHistory, String[] coauthors,
       String[] type) {
     this.name = name;
     this.description = description;
     this.isPublic = isPublic;
+    this.showHistory = showHistory;
     this.coauthors = coauthors;
     this.type = type;
   }
@@ -57,6 +59,14 @@ public class ProjectBody {
 
   public void setType(String[] type) {
     this.type = type;
+  }
+
+  public Boolean getShowHistory() {
+    return showHistory;
+  }
+
+  public void setShowHistory(Boolean showHistory) {
+    this.showHistory = showHistory;
   }
 
 }

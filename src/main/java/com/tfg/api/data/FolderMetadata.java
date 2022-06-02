@@ -6,6 +6,7 @@ public class FolderMetadata {
   private String folderName;
   private Long numberViews;
   private Boolean isPublic;
+  private Boolean showHistory;
   private Long numberDownloads;
   private Date lastUpdated;
   private Long numberFiles;
@@ -17,18 +18,21 @@ public class FolderMetadata {
     this.folderName = folderName;
     this.numberViews = 0L;
     this.isPublic = true;
+    this.showHistory = true;
     this.numberDownloads = 0L;
     this.lastUpdated = new Date();
     this.numberFiles = 0L;
   }
 
-  public FolderMetadata(String folderName, Long numberViews, Boolean isPublic, Long numberDownloads,
+  public FolderMetadata(String folderName, Long numberViews, Boolean isPublic, Boolean showHistory,
+      Long numberDownloads,
       Date lastUpdatedDate) {
     this.folderName = folderName;
     this.numberViews = numberViews;
     this.isPublic = isPublic;
     this.numberDownloads = numberDownloads;
     this.lastUpdated = lastUpdatedDate;
+    this.showHistory = showHistory;
   }
 
   public Long getNumberViews() {
@@ -41,6 +45,14 @@ public class FolderMetadata {
 
   public void setIsPublic(Boolean isPublic) {
     this.isPublic = isPublic;
+  }
+
+  public Boolean getShowHistory() {
+    return showHistory;
+  }
+
+  public void setShowHistory(Boolean showHistory) {
+    this.showHistory = showHistory;
   }
 
   public void setNumberViews(Long numberViews) {

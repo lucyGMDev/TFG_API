@@ -13,6 +13,7 @@ public class FileData {
   String author;
   String description;
   Boolean isPublic;
+  Boolean showHistorial;
   HashMap<String, Integer> scores;
   float avgScore;
   Long numDownload;
@@ -22,7 +23,8 @@ public class FileData {
   }
 
   public FileData(String fileName, String directoryName, Long projectId, Date uploadedDate, Date lastUpdatedDate,
-      String author, String description, Boolean isPublic, HashMap<String, Integer> scores, float avgScore,
+      String author, String description, Boolean isPublic, Boolean showHistorial, HashMap<String, Integer> scores,
+      float avgScore,
       Long numDownload) {
     this.fileName = fileName;
     this.directoryName = directoryName;
@@ -32,6 +34,7 @@ public class FileData {
     this.author = author;
     this.description = description;
     this.isPublic = isPublic;
+    this.showHistorial = showHistorial;
     this.scores = scores;
     this.avgScore = avgScore;
     this.numDownload = numDownload;
@@ -99,6 +102,14 @@ public class FileData {
 
   public void setIsPublic(Boolean isPublic) {
     this.isPublic = isPublic;
+  }
+
+  public Boolean getShowHistorial() {
+    return showHistorial;
+  }
+
+  public void setShowHistorial(Boolean showHistorial) {
+    this.showHistorial = showHistorial;
   }
 
   public HashMap<String, Integer> getScores() {

@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
+import javax.print.attribute.standard.Media;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -27,6 +28,7 @@ import com.tfg.api.data.FolderMetadata;
 import com.tfg.api.data.OrderFilter;
 import com.tfg.api.data.Project;
 import com.tfg.api.data.ProjectList;
+import com.tfg.api.data.ShortUrlResource;
 import com.tfg.api.data.User;
 import com.tfg.api.data.Version;
 import com.tfg.api.data.VersionList;
@@ -390,6 +392,11 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
+    if (project.getShowHistory() == null) {
+      return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Project show history is required\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+
     if (project.getType() == null) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Project type is required\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -454,10 +461,11 @@ public class ProjectController {
     if (commitId != null) {
       database.addCommitProject(projectId, commitId);
     }
-    HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CreateProject, userEmail,
+    HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CreateProject,
+        user.getUsername(),
         new Date());
     String changeMessage = jsonManager.toJson(historialMessages);
-    database.addChangeMessageProject(projectId, null, changeMessage);
+    database.addChangeMessageProject(projectId, null, changeMessage, null, null);
     if (project.getCoauthors() != null) {
       for (String coauthor : project.getCoauthors()) {
         if (database.userIsCoauthor(projectId, coauthor))
@@ -469,9 +477,9 @@ public class ProjectController {
               .build();
         }
         HistorialMessages addCoauthorhistorialMessage = new HistorialMessages(
-            HistorialMessages.Operations.CoauthorAdded, userEmail, coauthor, new Date());
+            HistorialMessages.Operations.CoauthorAdded, user.getUsername(), coauthor, new Date());
         changeMessage = jsonManager.toJson(addCoauthorhistorialMessage);
-        database.addChangeMessageProject(projectId, null, changeMessage);
+        database.addChangeMessageProject(projectId, null, changeMessage, null, null);
       }
     }
 
@@ -522,6 +530,9 @@ public class ProjectController {
     if (projectBody.getIsPublic() != null) {
       project.setIsPublic(projectBody.getIsPublic());
     }
+    if (projectBody.getShowHistory() != null) {
+      project.setShowHistory(projectBody.getShowHistory());
+    }
     if (projectBody.getType() != null) {
       project.setType(projectBody.getType());
     }
@@ -529,12 +540,13 @@ public class ProjectController {
     Project projectUpdated = null;
 
     if (projectBody.getName() != null || projectBody.getDescription() != null || projectBody.getIsPublic() != null
-        || projectBody.getType() != null) {
+        || projectBody.getType() != null || projectBody.getShowHistory()) {
       projectUpdated = database.updateProject(projectId, project);
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UpdateProject, userEmail,
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UpdateProject,
+          user.getUsername(),
           new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
-      database.addChangeMessageProject(projectId, null, changeMessage);
+      database.addChangeMessageProject(projectId, null, changeMessage, null, null);
     } else {
       projectUpdated = project;
     }
@@ -547,10 +559,11 @@ public class ProjectController {
             .entity("{\"message\":\"An error occurred while adding coauthor\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorAdded, userEmail,
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorAdded,
+          user.getUsername(),
           coauthor, new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
-      database.addChangeMessageProject(projectId, null, changeMessage);
+      database.addChangeMessageProject(projectId, null, changeMessage, null, null);
     }
     if (projectUpdated == null) {
       projectUpdated = database.getProjectById(projectId);
@@ -573,7 +586,7 @@ public class ProjectController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
           .type(MediaType.APPLICATION_JSON).build();
     }
-
+    User user = database.getUserByEmail(userEmail);
     if (coauthors == null || coauthors.length == 0) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Coauthors list to add is required\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -584,7 +597,7 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
       return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to add coauthors on this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -609,10 +622,11 @@ public class ProjectController {
             .entity("{\"message\":\"An error occurred while adding coauthor\"}").type(MediaType.APPLICATION_JSON)
             .build();
       }
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorAdded, userEmail,
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorAdded,
+          user.getUsername(),
           coauthor, new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
-      database.addChangeMessageProject(projectId, null, changeMessage);
+      database.addChangeMessageProject(projectId, null, changeMessage, null, null);
     }
 
     Project project = database.getProjectById(projectId);
@@ -635,6 +649,8 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
+    User user = database.getUserByEmail(userEmail);
+
     if (coauthors == null || coauthors.length == 0) {
       return Response.status(Response.Status.BAD_REQUEST).entity("{\"message\":\"Coauthors list to add is required\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -645,7 +661,7 @@ public class ProjectController {
           .type(MediaType.APPLICATION_JSON).build();
     }
 
-    if (!ProjectUtils.userIsAuthor(projectId, userEmail)) {
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
       return Response.status(Response.Status.UNAUTHORIZED)
           .entity("{\"message\":\"You do not have permission to remove coauthors on this project\"}")
           .type(MediaType.APPLICATION_JSON).build();
@@ -671,9 +687,9 @@ public class ProjectController {
             .build();
       }
       HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CoauthorRemoved,
-          userEmail, coauthor, new Date());
+          user.getUsername(), coauthor, new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
-      database.addChangeMessageProject(projectId, null, changeMessage);
+      database.addChangeMessageProject(projectId, null, changeMessage, null, null);
     }
 
     Project project = database.getProjectById(projectId);
@@ -711,6 +727,79 @@ public class ProjectController {
 
     return Response.status(Response.Status.OK).build();
 
+  }
+
+  /**
+   * This function get all metadata for a given item of a project on a
+   * determinated project version.
+   * 
+   * @param token       A json web token with useremail
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the item
+   * @param versionName Name of the version
+   * @return Response with item metadata
+   */
+  public static Response getItem(final String token, final Long projectId, final String folderName,
+      final String versionName) {
+
+    DBManager database = new DBManager();
+    JwtUtils jwtManager = new JwtUtils();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error with JWT\"}").build();
+    }
+    User user = database.getUserByEmail(userEmail);
+
+    if (!ProjectUtils.userCanAccessProject(projectId, user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You dont have permission to access this project\"}").build();
+    }
+    String versionId;
+    try {
+      versionId = ProjectUtils.getCommitIdVersion(projectId, versionName, user.getUsername());
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting item metadata\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this project\"}").build();
+    }
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    try {
+      ProjectRepository project = new ProjectRepository(projectPath);
+      project.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting item metadata\"}").build();
+    }
+    try {
+      if (!FolderUtils.userCanAccessFolder(projectId, folderName, user.getUsername())) {
+        return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"You have not permission to access this item\"}").build();
+      }
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting item metadata\"}").build();
+    }
+    FolderMetadata folderMetadata;
+    try {
+      folderMetadata = FolderUtils.getMetadataFolder(projectId, folderName);
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while getting item metadata\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
+        .entity(jsonManager.toJson(folderMetadata))
+        .build();
   }
 
   /**
@@ -807,8 +896,102 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
   }
 
+  /**
+   * Update history visibility of a item
+   * 
+   * @param token       json web token with user email
+   * @param projectId   Identifier of project
+   * @param folderName  Name of the folder
+   * @param showHistory Visibility of the history
+   * @param versionName Name of the version to change
+   * @return
+   */
+  public static Response updateShowHistoryFolder(final String token, final Long projectId, final String folderName,
+      final Boolean showHistory, final String versionName) {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity("{\"message\":\"Error with JWT\"}")
+          .type(MediaType.APPLICATION_JSON).build();
+    }
+    User user = database.getUserByEmail(userEmail);
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to update this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Folder name is not valid\"}").build();
+    }
+
+    if (!(versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+        && database.versionExistsOnProject(projectId, versionName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    }
+
+    String versionId = (versionName.equals("")
+        || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))
+            ? database.getLastCommitProject(projectId)
+            : database.getCommitIdFromVersion(projectId, versionName);
+
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository projectRepository;
+    try {
+      projectRepository = new ProjectRepository(projectPath);
+      projectRepository.changeVersion(versionId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    FolderMetadata folderMetadata;
+    try {
+      folderMetadata = FolderUtils.getMetadataFolder(projectId, folderName);
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    folderMetadata.setShowHistory(showHistory);
+    String commitId;
+    try {
+      commitId = projectRepository.createMetadataFolder(jsonManager.toJson(folderMetadata), folderName);
+    } catch (IOException | GitAPIException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error updating folder permision\"}").build();
+    }
+    if ((versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME")))) {
+      database.addCommitProject(projectId, commitId);
+    } else {
+      database.updateVersionCommit(projectId, versionName, commitId);
+    }
+
+    String lastProjectVersion = database.getLastCommitProject(projectId);
+    try {
+      projectRepository.changeVersion(lastProjectVersion);
+    } catch (GitAPIException e) {
+      e.printStackTrace();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
+  }
+
   public static Response addFileToProject(final Long projectId, final String token, final String folderName,
-      final String description, final Boolean isPublic, final InputStream uploadedInputStream,
+      final String description, final Boolean isPublic, final Boolean showHistorial,
+      final InputStream uploadedInputStream,
       final FormDataContentDisposition fileDetail) {
 
     DBManager database = new DBManager();
@@ -895,12 +1078,13 @@ public class ProjectController {
 
     String commit = "";
     try {
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UploadFile, userEmail,
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UploadFile,
+          user.getUsername(),
           filename, new Date());
       historialMessages.setFolder(folderName);
       String commitMessage = jsonManager.toJson(historialMessages);
       projectRepository.addFile(uploadedInputStream, folderName, filename, commitMessage);
-      database.addChangeMessageProject(projectId, null, commitMessage);
+      database.addChangeMessageProject(projectId, null, commitMessage, folderName, null);
     } catch (Exception e) {
       try {
         projectRepository.changeVersion(lastProjectVersion);
@@ -914,7 +1098,7 @@ public class ProjectController {
     FileData metadata;
     try {
       metadata = new FileData(filename, folderName, projectId, new Date(), new Date(), userEmail, description,
-          isPublic, new HashMap<String, Integer>(), 0, 0L);
+          isPublic, showHistorial, new HashMap<String, Integer>(), 0, 0L);
       commit = projectRepository.createMetadataFile(jsonManager.toJson(metadata), folderName, filename);
     } catch (IOException | GitAPIException e) {
       try {
@@ -1293,7 +1477,7 @@ public class ProjectController {
       FolderMetadata metadata = FolderUtils.getMetadataFolder(projectId, folderName);
       metadata.incrementNumberViews();
       String commitId = project.createMetadataFolder(jsonManager.toJson(metadata), folderName);
-      if (!versionName.equals("")) {
+      if (!versionName.equals("") && !versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
         database.updateVersionCommit(projectId, versionName, commitId);
       } else {
         database.addCommitProject(projectId, commitId);
@@ -1416,10 +1600,193 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Change the file visibility on a determinated vesion of the project
+   * 
+   * @param token       Json Web Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param fileName    Name of the file
+   * @param isPublic    Set if file is public or not
+   * @param versionName Name of the version to the project
+   * @return
+   */
+  public static Response updateFileVisibility(final String token, final Long projectId, final String folderName,
+      final String fileName, final Boolean isPublic, final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    Gson jsonManager = new Gson();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error with JWT\"}").build();
+    }
+    User user = database.getUserByEmail(userEmail);
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to update this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Folder name is not valid\"}").build();
+    }
+
+    String commitId;
+    try {
+      commitId = ProjectUtils.getCommitIdVersion(projectId, versionName, user.getUsername());
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility of file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository repository;
+
+    try {
+      repository = new ProjectRepository(projectPath);
+      repository.changeVersion(commitId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility of file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"The file do not exists\"}").build();
+    }
+    FileData fileMetadata;
+    try {
+      fileMetadata = FileUtils.getMetadataFile(projectId, folderName, fileName);
+      fileMetadata.setIsPublic(isPublic);
+      String newCommitId = repository.createMetadataFile(jsonManager.toJson(fileMetadata), folderName, fileName);
+      if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+        database.addCommitProject(projectId, newCommitId);
+      } else {
+        database.updateVersionCommit(projectId, versionName, newCommitId);
+
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
+
+  }
+
+  /**
+   * Changue the permissions to see the history on users who are not authors
+   * 
+   * @param token       Json Web Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param fileName    Name of the file
+   * @param showHistory Set if an user who is not an author can see the history
+   * @param versionName Name of the version
+   * @return
+   */
+  public static Response updateFileShowHistory(final String token, final Long projectId, final String folderName,
+      final String fileName, final Boolean showHistory, final String versionName) {
+
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    JwtUtils jwtManager = new JwtUtils();
+    Gson jsonManager = new Gson();
+    String userEmail;
+    try {
+      userEmail = jwtManager.getUserEmailFromJwt(token);
+    } catch (Exception e) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .type(MediaType.APPLICATION_JSON).entity("{\"message\":\"Error with JWT\"}").build();
+    }
+    User user = database.getUserByEmail(userEmail);
+
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to update this project\"}").build();
+    }
+
+    if (!FolderUtils.folderNameIsValid(folderName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Folder name is not valid\"}").build();
+    }
+
+    String commitId;
+    try {
+      commitId = ProjectUtils.getCommitIdVersion(projectId, versionName, user.getUsername());
+    } catch (NullPointerException npe) {
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility of file\"}").build();
+    } catch (NotFoundException nfe) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+    } catch (AccessControlException ace) {
+      return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"You have not permission to access this version\"}").build();
+    }
+    String projectPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
+    ProjectRepository repository;
+
+    try {
+      repository = new ProjectRepository(projectPath);
+      repository.changeVersion(commitId);
+    } catch (IllegalStateException | GitAPIException | IOException e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility of file\"}").build();
+    }
+
+    if (!FileUtils.fileExists(projectId, folderName, fileName)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"The file do not exists\"}").build();
+    }
+    FileData fileMetadata;
+    try {
+      fileMetadata = FileUtils.getMetadataFile(projectId, folderName, fileName);
+      fileMetadata.setShowHistorial(showHistory);
+      String newCommitId = repository.createMetadataFile(jsonManager.toJson(fileMetadata), folderName, fileName);
+      if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+        database.addCommitProject(projectId, newCommitId);
+      } else {
+        database.updateVersionCommit(projectId, versionName, newCommitId);
+
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+      return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"Error while updating visibility\"}").build();
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
+  }
+
   public static Response downloadFileFromVersion(final String token, final Long projectId, final String folderName,
       final String filename, final String versionName) {
     DBManager database = new DBManager();
     Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
     JwtUtils jwtManager = new JwtUtils();
     String userEmail;
     try {
@@ -1503,6 +1870,20 @@ public class ProjectController {
 
     String filePath = projectPath + File.separator + folderName + File.separator + filename;
     File file = new File(filePath);
+
+    FileData fileMetadata;
+    try {
+      fileMetadata = FileUtils.getMetadataFile(projectId, folderName, filename);
+      fileMetadata.incrementNumberDownloads();
+      String commitId = project.createMetadataFile(jsonManager.toJson(fileMetadata), folderName, filename);
+      if (versionName.equals("") || versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+        database.addCommitProject(projectId, commitId);
+      } else {
+        database.updateVersionCommit(projectId, versionName, commitId);
+      }
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
 
     return Response.status(Response.Status.OK).type(MediaType.MULTIPART_FORM_DATA).entity((Object) file)
         .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
@@ -1599,12 +1980,13 @@ public class ProjectController {
       }
 
       try {
-        HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UpdateFile, userEmail,
+        HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.UpdateFile,
+            user.getUsername(),
             filename, new Date());
         historialMessages.setFolder(folderName);
         String changeMessage = jsonManager.toJson(historialMessages);
         projectRepository.addFile(uploadedInputStream, folderName, fileDetail.getFileName(), changeMessage);
-        database.addChangeMessageProject(projectId, null, changeMessage);
+        database.addChangeMessageProject(projectId, null, changeMessage, folderName, fileDetail.getFileName());
       } catch (Exception e) {
         e.printStackTrace();
         try {
@@ -1671,23 +2053,27 @@ public class ProjectController {
     }
 
     User user = database.getUserByEmail(userEmail);
-
+    System.out.println("Tengo usuario");
     if (!database.projectExitsById(projectId)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any project with this id\"}").build();
     }
+    System.out.println("Proyecto existe");
 
     if (!ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
       return Response.status(Response.Status.UNAUTHORIZED).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"You have not permission to remove files on this project\"}").build();
     }
+    System.out.println("Eres author");
 
     if (!FolderUtils.folderNameIsValid(folderName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Folder name is not valid\"}").build();
     }
+    System.out.println("Nombre carpeta valido");
 
     String lastVersionId = database.getLastCommitProject(projectId);
+    System.out.println("Commit obtenido");
     String path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId;
     ProjectRepository project;
     try {
@@ -1698,25 +2084,30 @@ public class ProjectController {
       return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while deleting version\"}").build();
     }
-
     if (!FileUtils.fileExists(projectId, folderName, fileName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"This file does not exist\"}").build();
     }
+    System.out.println("Archivo existe");
 
     try {
       path = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName
           + File.separator + fileName;
-      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.RemoveFile, userEmail,
+      HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.RemoveFile,
+          user.getUsername(),
           fileName, new Date());
       String changeMessage = jsonManager.toJson(historialMessages);
       project.removerFileFromProject(path, changeMessage);
+      System.out.println("Archivo eliminado");
       String metadataPath = environmentVariablesManager.get("PROJECTS_ROOT") + File.separator + projectId
           + File.separator + folderName
           + File.separator + "metadata" + File.separator + FileUtils.getMetadataFilename(fileName);
       String commitId = project.removerFileFromProject(metadataPath, "Remove metadafile from " + fileName);
-      database.addChangeMessageProject(projectId, null, changeMessage);
+      System.out.println("Metadata eliminado");
+      database.addChangeMessageProject(projectId, null, changeMessage, folderName, null);
+      System.out.println("Guardado mensaje");
       database.addCommitProject(projectId, commitId);
+      System.out.println("Guardado commit");
     } catch (GitAPIException e) {
       e.printStackTrace();
       try {
@@ -2301,11 +2692,12 @@ public class ProjectController {
     }
     Version versionCreated = new Version(projectId, database.getCommitIdFromVersion(projectId, versionName),
         versionName, isPublic);
-    HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CreateVerion, userEmail,
+    HistorialMessages historialMessages = new HistorialMessages(HistorialMessages.Operations.CreateVerion,
+        user.getUsername(),
         versionName, new Date());
     String changeMessage = jsonManager.toJson(historialMessages);
-    database.addChangeMessageProject(projectId, null, changeMessage);
-    database.addChangeMessageProject(projectId, versionName, changeMessage);
+    database.addChangeMessageProject(projectId, null, changeMessage, null, null);
+    database.addChangeMessageProject(projectId, versionName, changeMessage, null, null);
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
         .entity(jsonManager.toJson(versionCreated)).build();
@@ -2403,6 +2795,35 @@ public class ProjectController {
         .entity("{\"message\":\"Version removed successfully\"}").build();
   }
 
+  public static Response getVersionFromName(final Long projectId, final String versionName) {
+    DBManager database = new DBManager();
+    Dotenv environmentVariablesManager = Dotenv.load();
+    Gson jsonManager = new Gson();
+    if (!database.projectExitsById(projectId)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any project with this id\"}").build();
+    }
+
+    Version version;
+    if (!versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))) {
+      if (!database.versionExistsOnProject(projectId, versionName)) {
+        return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
+      }
+      version = database.getVersionFromName(projectId, versionName);
+      if (version == null) {
+        return Response.status(Response.Status.INTERNAL_SERVER_ERROR).type(MediaType.APPLICATION_JSON)
+            .entity("{\"message\":\"Error while getting version\"}").build();
+      }
+    } else {
+      version = new Version(projectId, database.getCommitIdFromVersion(projectId, versionName), versionName,
+          database.projectIsPublic(projectId));
+    }
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(version))
+        .build();
+  }
+
   public static Response rateProject(final String token, final Long projectId, final Float score) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -2462,6 +2883,7 @@ public class ProjectController {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
+    Dotenv environmentVariablesManager = Dotenv.load();
     String userEmail;
     try {
       userEmail = jwtManager.getUserEmailFromJwt(token);
@@ -2482,27 +2904,63 @@ public class ProjectController {
           .entity("{\"message\":\"You have not permission to see the historial on this project\"}").build();
     }
 
-    if (!versionName.equals("") && !database.versionExistsOnProject(projectId, versionName)) {
+    if (!versionName.equals("") && !versionName.equals(environmentVariablesManager.get("CURRENT_VERSION_NAME"))
+        && !database.versionExistsOnProject(projectId, versionName)) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"There are not any version with this name on this project\"}").build();
     }
 
-    // TODO: Gestionar historial de una version. Actualmente no es necesario manejar
-    // historial de las versiones
-
-    ArrayList<String> historialsJson = database.getHistorialProject(projectId);
-    if (historialsJson == null) {
+    ArrayList<HistorialMessages> historial = database.getHistorialProject(projectId);
+    if (historial == null) {
       return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
           .entity("{\"message\":\"Error while getting historial changes\"}").build();
     }
-    ArrayList<HistorialMessages> historial = historialsJson.stream()
-        .map(historialJson -> jsonManager.fromJson(historialJson, HistorialMessages.class))
-        .collect(Collectors.toCollection(ArrayList::new));
-    ArrayList<String> result = historial.stream().map(singleHistorial -> singleHistorial.toString())
+    ArrayList<HistorialMessages> historialFiltered = historial.stream().filter(historialMessage -> {
+      if (ProjectUtils.userIsAuthor(projectId, user.getUsername())) {
+        return true;
+      }
+      if (historialMessage.getFile() != null && historialMessage.getFolder() != null
+          && historialMessage.getProjectId() != null) {
+        try {
+          FileData fileMetadata = FileUtils.getMetadataFile(historialMessage.getProjectId(),
+              historialMessage.getFolder(), historialMessage.getFile());
+          return fileMetadata.getShowHistorial();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      if (historialMessage.getFile() == null && historialMessage.getFolder() != null
+          && historialMessage.getProjectId() != null) {
+        try {
+          FolderMetadata folderMetadata = FolderUtils.getMetadataFolder(historialMessage.getProjectId(),
+              historialMessage.getFolder());
+          return folderMetadata.getShowHistory();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      if (historialMessage.getFile() == null && historialMessage.getFolder() == null
+          && historialMessage.getProjectId() != null) {
+        try {
+          Project project = database.getProjectById(historialMessage.getProjectId());
+          return project.getShowHistory();
+        } catch (Exception e) {
+          e.printStackTrace();
+          throw new RuntimeException(e);
+        }
+      }
+      return false;
+    }).collect(Collectors.toCollection(ArrayList::new));
+
+    ArrayList<String> result = historialFiltered.stream().map(singleHistorial -> singleHistorial.toString())
         .collect(Collectors.toCollection(ArrayList::new));
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON)
-        .entity(String.format("{\"historial\": %s}", jsonManager.toJson(result))).build();
+        .entity(String.format("{\"historial\": %s, \"historialMetaData\":%s}", jsonManager.toJson(result),
+            jsonManager.toJson(historialFiltered)))
+        .build();
   }
 
   /**
@@ -2589,6 +3047,19 @@ public class ProjectController {
     Boolean isAuthor = ProjectUtils.userIsAuthor(projectId, user.getUsername());
 
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(isAuthor))
+        .build();
+  }
+
+  public static Response getElementByShortUrl(final String shortUrl) throws Exception {
+    DBManager database = new DBManager();
+    Gson jsonManager = new Gson();
+    if (!database.shortUrlExist(shortUrl)) {
+      return Response.status(Response.Status.BAD_REQUEST).type(MediaType.APPLICATION_JSON)
+          .entity("{\"message\":\"There are not any resource with this url\"}").build();
+    }
+    ShortUrlResource resource = database.getShortUrlResource(shortUrl);
+
+    return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(jsonManager.toJson(resource))
         .build();
   }
 

@@ -55,4 +55,10 @@ public class UserResources {
     return UserController.userExists(userName);
   }
 
+  @GET
+  @Path("/{userEmail}/userExistsEmail")
+  public Response userExistsEmail(@PathParam("userEmail") final String userEmail) {
+    return UserController.userExistsEmail(userEmail);
+  }
+
 }
