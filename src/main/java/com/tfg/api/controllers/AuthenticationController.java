@@ -22,6 +22,12 @@ import java.net.MalformedURLException;
 import java.net.URL;
 
 public class AuthenticationController {
+  /**
+   * Create the sesion of a user
+   * 
+   * @param OAuthtoken Token with Oauth login data
+   * @return
+   */
   public static Response createUserSesion(final String OAuthtoken) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
@@ -98,6 +104,13 @@ public class AuthenticationController {
     return Response.status(Status.OK).entity(response).type(MediaType.APPLICATION_JSON).build();
   }
 
+  /**
+   * Sing up a user on the application
+   * 
+   * @param OAuthtoken Token with Oauth login data
+   * @param username
+   * @return
+   */
   public static Response singUp(final String OAuthtoken, final String username) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();

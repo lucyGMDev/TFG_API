@@ -40,7 +40,7 @@ public class GuestController {
   /**
    * Get all data about a project who is public
    * 
-   * @param projectId of the project wich you want to get
+   * @param projectId projectId of the project wich you want to get
    * @return Response with the data of the project
    */
   public static Response getProject(final Long projectId) {

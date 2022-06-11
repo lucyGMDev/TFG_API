@@ -16,7 +16,6 @@ import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
-import javax.print.attribute.standard.Media;
 import javax.ws.rs.NotFoundException;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -49,9 +48,13 @@ import io.github.cdimascio.dotenv.Dotenv;
 
 public class ProjectController {
 
-  // TODO: Tener en cuenta que hay que añadir al versionName.equal("") el nombre
-  // por defecto de la version actual
-
+  /**
+   * Get all information about a project
+   * 
+   * @param token     Token with email of the user
+   * @param projectId Identifier of the project
+   * @return
+   */
   public static Response getProject(String token, Long projectId) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -85,6 +88,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Download a poject on a determinated version
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response downloadProject(final String token, final long projectId, final String versionName) {
 
     DBManager database = new DBManager();
@@ -236,6 +247,13 @@ public class ProjectController {
 
   }
 
+  /**
+   * Get projects from a user
+   * 
+   * @param token         Token with user email
+   * @param ownerProjects Username of the projects owner
+   * @return
+   */
   public static Response getUserProjects(String token, String ownerProjects) {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();
@@ -270,6 +288,17 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Search projects on the application
+   * 
+   * @param token             Token with user email
+   * @param offset            Offset to start searching projects
+   * @param numberProjectsGet number of projects to get
+   * @param keyword           Keyword to search projects
+   * @param typesArray        Array with projects types to filter search
+   * @param order             Order of the search results
+   * @return
+   */
   public static Response searchProjects(final String token, final Long offset, final Long numberProjectsGet,
       final String keyword, final String[] typesArray, final String order) {
     DBManager database = new DBManager();
@@ -330,6 +359,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Search between user projects
+   * 
+   * @param token   Token with user email
+   * @param keyword Keyword to search projects
+   * @param usename
+   * @return
+   */
   public static Response searchInUserProjects(final String token, final String keyword, final String usename) {
     DBManager database = new DBManager();
     JwtUtils jwtUtils = new JwtUtils();
@@ -362,6 +399,13 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Create a project
+   * 
+   * @param project Project information
+   * @param token   Token with user email
+   * @return
+   */
   public static Response createProject(final ProjectBody project, final String token) {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
@@ -489,6 +533,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Update a project
+   * 
+   * @param projectId   Identifier of the project
+   * @param projectBody Information about the project
+   * @param token       Token with user email
+   * @return
+   */
   public static Response updateProject(final Long projectId, final ProjectBody projectBody, final String token) {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
@@ -574,6 +626,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Add coauthors to the project
+   * 
+   * @param projectId Identifier of the project
+   * @param token     Token with user email
+   * @param coauthors List of coauthor to add
+   * @return
+   */
   public static Response addCoauthorToProject(final Long projectId, String token, String[] coauthors) {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
@@ -635,6 +695,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Remove coauthor from a project
+   * 
+   * @param projectId Identifier of the project
+   * @param token     Token with user email
+   * @param coauthors List of coauthor to remove from the project
+   * @return
+   */
   public static Response removeCoauthorsFromProject(final Long projectId, final String token,
       final String[] coauthors) {
     DBManager database = new DBManager();
@@ -698,6 +766,13 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Delete a project
+   * 
+   * @param token     Token with user email
+   * @param projectId Identifier of the project
+   * @return
+   */
   public static Response deleteProject(final String token, final Long projectId) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -989,6 +1064,19 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
   }
 
+  /**
+   * Add a file to a project
+   * 
+   * @param projectId           Identifier of the project
+   * @param token               Token with user email
+   * @param folderName          Name of the item
+   * @param description         Description of the file
+   * @param isPublic            Indicates if the file is public
+   * @param showHistorial       Indicates if the history of the file will be shown
+   * @param uploadedInputStream File to upload
+   * @param fileDetail          File to upload
+   * @return
+   */
   public static Response addFileToProject(final Long projectId, final String token, final String folderName,
       final String description, final Boolean isPublic, final Boolean showHistorial,
       final InputStream uploadedInputStream,
@@ -1142,6 +1230,15 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Download a item from a project
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the item
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response downloadFolderFromProjet(final String token, final Long projectId, final String folderName,
       final String versionName) {
     Gson jsonManager = new Gson();
@@ -1270,6 +1367,16 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Download a group of files from a item
+   * 
+   * @param token              Token with user email
+   * @param projectId          Identifier of the project
+   * @param folderName         Name of the item
+   * @param versionName        Name of the version
+   * @param filesSelectedNames Name of the files selected to download
+   * @return
+   */
   public static Response downloadFilesSelectedFromFolder(final String token, final Long projectId,
       final String folderName,
       final String versionName, final List<String> filesSelectedNames) {
@@ -1390,6 +1497,15 @@ public class ProjectController {
         String.format("attachment; filename=\"%s.zip\"", folderName)).entity((Object) zipFile).build();
   }
 
+  /**
+   * Get files frfom a item
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getFilesFromFolder(final String token, final Long projectId, final String folderName,
       final String versionName) {
     DBManager database = new DBManager();
@@ -1496,6 +1612,16 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Get a file of a determinated version
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the item
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getFileFromVersion(String token, Long projectId, String folderName, String filename,
       String versionName) {
     DBManager database = new DBManager();
@@ -1782,6 +1908,16 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).build();
   }
 
+  /**
+   * Download a fil on a determinated version
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the project
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response downloadFileFromVersion(final String token, final Long projectId, final String folderName,
       final String filename, final String versionName) {
     DBManager database = new DBManager();
@@ -1889,6 +2025,19 @@ public class ProjectController {
         .header("Content-Disposition", "attachment; filename=" + file.getName()).build();
   }
 
+  /**
+   * Update a file on the project
+   * 
+   * @param token               Token with user email
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the folder
+   * @param filename            Name of the file
+   * @param description         Description of the file
+   * @param isPublic            Indicates if the file is public
+   * @param uploadedInputStream File to upload
+   * @param fileDetail          File to upload
+   * @return
+   */
   public static Response updateFile(final String token, final Long projectId, final String folderName,
       final String filename,
       final String description, final Boolean isPublic, final InputStream uploadedInputStream,
@@ -2036,6 +2185,15 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Remove a file from the project
+   * 
+   * @param token      Token with user email
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the folder
+   * @param fileName   Name of the file
+   * @return
+   */
   public static Response removeFile(final String token, final Long projectId, final String folderName,
       final String fileName) {
 
@@ -2123,6 +2281,17 @@ public class ProjectController {
         .entity("{\"message\":\"File deleted successfully\"}").build();
   }
 
+  /**
+   * Rate a file on a project
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @param score       Score for the file
+   * @return
+   */
   public static Response rateFile(final String token, final Long projectId, final String folderName,
       final String filename, final String versionName, final Integer score) {
     DBManager database = new DBManager();
@@ -2302,6 +2471,16 @@ public class ProjectController {
         .entity("{\"message\":\"Rating done successfully\"}").build();
   }
 
+  /**
+   * Get the file rating for a file from a user
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the folder
+   * @param filename    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getFileRatingUser(final String token, final Long projectId, final String folderName,
       final String filename, final String versionName) {
     DBManager database = new DBManager();
@@ -2432,6 +2611,16 @@ public class ProjectController {
     return Response.status(Response.Status.OK).type(MediaType.APPLICATION_JSON).entity(responseJson).build();
   }
 
+  /**
+   * Get the short url for a project resource
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the item
+   * @param fileName    Name of the file
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getShortUrl(final String token, final Long projectId, final String folderName,
       final String fileName, final String versionName) {
     DBManager database = new DBManager();
@@ -2519,6 +2708,17 @@ public class ProjectController {
 
   }
 
+  /**
+   * Set a short url for a project resource
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param folderName  Name of the item
+   * @param fileName    Name of the file
+   * @param versionName Name of the version
+   * @param shortUrl
+   * @return
+   */
   public static Response getShortUrl(final String token, final Long projectId, final String folderName,
       final String fileName, final String versionName, String shortUrl) {
     DBManager database = new DBManager();
@@ -2643,6 +2843,15 @@ public class ProjectController {
 
   }
 
+  /**
+   * Create a version for a project
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @param isPublic    Indicates if the version is public
+   * @return
+   */
   public static Response createVersion(final String token, final Long projectId, final String versionName,
       final Boolean isPublic) {
     JwtUtils jwtManager = new JwtUtils();
@@ -2703,6 +2912,13 @@ public class ProjectController {
         .entity(jsonManager.toJson(versionCreated)).build();
   }
 
+  /**
+   * Get all versions for a project
+   * 
+   * @param token     Token with user email
+   * @param projectId Identifier of the project
+   * @return
+   */
   public static Response getVersions(final String token, final Long projectId) {
     JwtUtils jwtManager = new JwtUtils();
     Gson jsonManager = new Gson();
@@ -2748,6 +2964,13 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Indicates if a version exists on a project
+   * 
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response projectVersionExists(final Long projectId, final String versionName) {
     DBManager database = new DBManager();
     Boolean versionExists = database.versionExistsOnProject(projectId, versionName);
@@ -2755,6 +2978,14 @@ public class ProjectController {
         .entity("{\"exists\":" + versionExists + "}").build();
   }
 
+  /**
+   * Delete a version on a project
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response deleteVersion(final String token, final Long projectId, final String versionName) {
 
     DBManager database = new DBManager();
@@ -2795,6 +3026,13 @@ public class ProjectController {
         .entity("{\"message\":\"Version removed successfully\"}").build();
   }
 
+  /**
+   * Get a version on a project by his name
+   * 
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getVersionFromName(final Long projectId, final String versionName) {
     DBManager database = new DBManager();
     Dotenv environmentVariablesManager = Dotenv.load();
@@ -2824,6 +3062,14 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Rate a project
+   * 
+   * @param token     Token with user email
+   * @param projectId Identifier of the project
+   * @param score     Score for the project
+   * @return
+   */
   public static Response rateProject(final String token, final Long projectId, final Float score) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -2879,6 +3125,14 @@ public class ProjectController {
         .entity("{\"message\":\"Project rate successfully\"}").build();
   }
 
+  /**
+   * Get history messages for a project
+   * 
+   * @param token       Token with user email
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   public static Response getHistorialMessages(final String token, final Long projectId, final String versionName) {
     JwtUtils jwtManager = new JwtUtils();
     DBManager database = new DBManager();
@@ -3032,6 +3286,13 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Indicate if a user is author of a project
+   * 
+   * @param token     Token with user email
+   * @param projectId Identifier of the project
+   * @return
+   */
   public static Response isAuthor(String token, Long projectId) {
     DBManager database = new DBManager();
     JwtUtils jwtManager = new JwtUtils();
@@ -3050,6 +3311,13 @@ public class ProjectController {
         .build();
   }
 
+  /**
+   * Get a resource of a project by his short url
+   * 
+   * @param shortUrl
+   * @return
+   * @throws Exception
+   */
   public static Response getElementByShortUrl(final String shortUrl) throws Exception {
     DBManager database = new DBManager();
     Gson jsonManager = new Gson();

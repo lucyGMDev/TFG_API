@@ -27,8 +27,6 @@ public class DBManager {
   private String username;
   private String password;
 
-  // TODO: Añadir en las busquedas el username
-
   public DBManager() {
     Dotenv dotenv = Dotenv.load();
     url = dotenv.get("DB_URL");

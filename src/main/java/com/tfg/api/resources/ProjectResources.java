@@ -25,6 +25,13 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 
 @Path("/project")
 public class ProjectResources {
+  /**
+   * Get all information about the project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @return
+   */
   @GET
   @Path("/{projectId}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -34,6 +41,14 @@ public class ProjectResources {
     return ProjectController.getProject(token, projectId);
   }
 
+  /**
+   * Download a project on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/download")
   @Produces(MediaType.APPLICATION_JSON)
@@ -43,6 +58,14 @@ public class ProjectResources {
     return ProjectController.downloadProject(token, projectId, versionName);
   }
 
+  /**
+   * Get all items in the project on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/getItems")
   @Produces(MediaType.APPLICATION_JSON)
@@ -53,6 +76,13 @@ public class ProjectResources {
     return ProjectController.getItems(token, projectId, versionName);
   }
 
+  /**
+   * Get all projects of a given user
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param username
+   * @return
+   */
   @GET
   @Path("/user/{username}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -62,6 +92,17 @@ public class ProjectResources {
     return ProjectController.getUserProjects(token, username);
   }
 
+  /**
+   * Search project on the application
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param offset              Offset to start searching projects
+   * @param numberProjectsLoad  Number of projects to load
+   * @param keyword             Keyword to search for projects
+   * @param type                Filter the search for types
+   * @param order               Order the search results
+   * @return
+   */
   @GET
   @Path("/search")
   @Produces(MediaType.APPLICATION_JSON)
@@ -75,6 +116,14 @@ public class ProjectResources {
     return ProjectController.searchProjects(token, offset, numberProjectsLoad, keyword, typesArray, order);
   }
 
+  /**
+   * Search between the user projects
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param usename
+   * @param keyword             Keyword to search for projects
+   * @return
+   */
   @GET
   @Path("/user/{usename}/search")
   @Produces(MediaType.APPLICATION_JSON)
@@ -85,6 +134,13 @@ public class ProjectResources {
     return ProjectController.searchInUserProjects(token, keyword, usename);
   }
 
+  /**
+   * Create a new project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param project             Project information
+   * @return
+   */
   @POST
   @Consumes(MediaType.APPLICATION_JSON)
   @Produces(MediaType.APPLICATION_JSON)
@@ -94,6 +150,14 @@ public class ProjectResources {
     return ProjectController.createProject(project, token);
   }
 
+  /**
+   * Update a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param project             Project information
+   * @return
+   */
   @PUT
   @Path("/{projectId}")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -104,6 +168,14 @@ public class ProjectResources {
     return ProjectController.updateProject(projectId, project, token);
   }
 
+  /**
+   * Add coauthors to the project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param coauthors           List with coauthors username to add
+   * @return
+   */
   @PUT
   @Path("/{projectId}/addCoauthors")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -114,6 +186,14 @@ public class ProjectResources {
     return ProjectController.addCoauthorToProject(projectId, token, coauthors.getCoauthors());
   }
 
+  /**
+   * Remove coauthors from the project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param coauthors           List with coauthors username to remove
+   * @return
+   */
   @PUT
   @Path("/{projectId}/removeCoauthors")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -124,6 +204,13 @@ public class ProjectResources {
     return ProjectController.removeCoauthorsFromProject(projectId, token, coauthors.getCoauthors());
   }
 
+  /**
+   * Delete a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @return
+   */
   @DELETE
   @Path("/{projectId}")
   public Response deleteProject(@HeaderParam("Authorization") final String authorizationHeader,
@@ -132,6 +219,15 @@ public class ProjectResources {
     return ProjectController.deleteProject(token, projectId);
   }
 
+  /**
+   * Get information about a item
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/folder/{folderName}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -142,6 +238,19 @@ public class ProjectResources {
     return ProjectController.getItem(token, projectId, folderName, versionName);
   }
 
+  /**
+   * Add a file on a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param description         Description of the file
+   * @param isPublic            Indicates if the file is public
+   * @param showHistory         Indicates if the history of the file is shown
+   * @param uploadedInputStream File to upload
+   * @param fileDetail          Detail from the file
+   * @return
+   */
   @POST
   @Path("/{projectId}/folder/{folderName}/addFile")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -158,6 +267,15 @@ public class ProjectResources {
         fileDetail);
   }
 
+  /**
+   * Download a item from a project on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/folder/{folderName}/download")
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
@@ -168,6 +286,16 @@ public class ProjectResources {
     return ProjectController.downloadFolderFromProjet(token, projectId, folderName, versionName);
   }
 
+  /**
+   * Download a group of files from a item
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param versionName         Name of the version
+   * @param filesSelectedNames  Name of the files selected to download
+   * @return
+   */
   @POST
   @Path("{projectId}/folder/{folderName}/downloadSelected")
   @Consumes(MediaType.APPLICATION_JSON)
@@ -181,6 +309,16 @@ public class ProjectResources {
         versionName, filesSelectedNames);
   }
 
+  /**
+   * Update the visibility of a item
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param isPublic            Indicate if the item is public
+   * @param versionName         Name of the version
+   * @return
+   */
   @PUT
   @Path("/{projectId}/folder/{folderName}/{isPublic}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -192,6 +330,16 @@ public class ProjectResources {
     return ProjectController.updateVisibilityFolder(token, projectId, folderName, isPublic, versionName);
   }
 
+  /**
+   * Update the item history visibility on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param showHistory         Idicate if the item history is shown
+   * @param versionName         Name of the version
+   * @return
+   */
   @PUT
   @Path("/{projectId}/folder/{folderName}/{showHistory}/changeShowHistory")
   @Produces(MediaType.APPLICATION_JSON)
@@ -203,6 +351,15 @@ public class ProjectResources {
     return ProjectController.updateShowHistoryFolder(token, projectId, folderName, showHistory, versionName);
   }
 
+  /**
+   * Get files from a item
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/folder/{folderName}/getFiles")
   @Produces(MediaType.APPLICATION_JSON)
@@ -213,6 +370,16 @@ public class ProjectResources {
     return ProjectController.getFilesFromFolder(token, projectId, folderName, versionName);
   }
 
+  /**
+   * Get a file on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/folder/{folderName}/file/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -224,6 +391,16 @@ public class ProjectResources {
     return ProjectController.getFileFromVersion(token, projectId, folderName, fileName, versionName);
   }
 
+  /**
+   * Download a file on a determinated version
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param filename            Name of the file
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/folder/{folderName}/file/{filename}/download")
   @Produces(MediaType.APPLICATION_OCTET_STREAM)
@@ -235,6 +412,19 @@ public class ProjectResources {
     return ProjectController.downloadFileFromVersion(token, projectId, folderName, filename, versionName);
   }
 
+  /**
+   * Update a file in the project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param description         Description of the file
+   * @param isPublic            Indicates if the file is public
+   * @param uploadedInputStream File to upload
+   * @param fileDetail          Detail of the file
+   * @return
+   */
   @PUT
   @Path("/{projectId}/folder/{folderName}/file/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -248,6 +438,17 @@ public class ProjectResources {
         uploadedInputStream, fileDetail);
   }
 
+  /**
+   * Update the visibility of the file
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param isPublic            Indicates if the file is public
+   * @param versionName         Name of the version
+   * @return
+   */
   @PUT
   @Path("/{projectId}/folder/{folderName}/file/{fileName}/changeVisibility/{isPublic}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -260,10 +461,21 @@ public class ProjectResources {
     return ProjectController.updateFileVisibility(token, projectId, folderName, fileName, isPublic, versionName);
   }
 
+  /**
+   * Update the visibility of history of the file
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param showHistory         Indicates if the file history will be shown
+   * @param versionName         Name of the version
+   * @return
+   */
   @PUT
   @Path("/{projectId}/folder/{folderName}/file/{fileName}/changeShowHistory/{showHistory}")
   @Produces(MediaType.APPLICATION_JSON)
-  public Response updateFolderHistoryVisibility(@HeaderParam("Authorization") final String authorizationHeader,
+  public Response updateFileHistoryVisibility(@HeaderParam("Authorization") final String authorizationHeader,
       @PathParam("projectId") final Long projectId, @PathParam("folderName") final String folderName,
       @PathParam("fileName") final String fileName,
       @PathParam("showHistory") final Boolean showHistory,
@@ -272,6 +484,15 @@ public class ProjectResources {
     return ProjectController.updateFileShowHistory(token, projectId, folderName, fileName, showHistory, versionName);
   }
 
+  /**
+   * Delete a file from the project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @return
+   */
   @DELETE
   @Path("/{projectId}/folder/{folderName}/file/{fileName}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -282,6 +503,17 @@ public class ProjectResources {
     return ProjectController.removeFile(token, projectId, folderName, fileName);
   }
 
+  /**
+   * Rate a file from a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param versionName         Name of the version
+   * @param score               Score for the file
+   * @return
+   */
   @POST
   @Path("/{projectId}/folder/{folderName}/file/{fileName}/rateFile")
   @Produces(MediaType.APPLICATION_JSON)
@@ -294,6 +526,16 @@ public class ProjectResources {
     return ProjectController.rateFile(token, projectId, folderName, fileName, versionName, score);
   }
 
+  /**
+   * Get a user rating from a file
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param filename            Name of the file
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("/{projectId}/folder/{folderName}/file/{fileName}/getUserRating")
   @Produces(MediaType.APPLICATION_JSON)
@@ -305,6 +547,13 @@ public class ProjectResources {
     return ProjectController.getFileRatingUser(token, projectId, folderName, filename, versionName);
   }
 
+  /**
+   * Get versions for a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @return
+   */
   @GET
   @Path("{projectId}/getVersions")
   @Produces(MediaType.APPLICATION_JSON)
@@ -314,6 +563,13 @@ public class ProjectResources {
     return ProjectController.getVersions(token, projectId);
   }
 
+  /**
+   * Indicate if a version exists on a project
+   * 
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/versionExist")
   @Produces(MediaType.APPLICATION_JSON)
@@ -322,6 +578,15 @@ public class ProjectResources {
     return ProjectController.projectVersionExists(projectId, versionName);
   }
 
+  /**
+   * Create a version on a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param name                Name of the version
+   * @param isPublic            Indicates if a file is public
+   * @return
+   */
   @POST
   @Path("{projectId}/createVersion")
   @Produces(MediaType.APPLICATION_JSON)
@@ -332,6 +597,14 @@ public class ProjectResources {
     return ProjectController.createVersion(token, projectId, name, isPublic);
   }
 
+  /**
+   * Delente a version on a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param versionName         Name of the version
+   * @return
+   */
   @DELETE
   @Path("{projectId}/deleteVersion")
   public Response deleteVersion(@HeaderParam("Authorization") final String authorizationHeader,
@@ -340,6 +613,13 @@ public class ProjectResources {
     return ProjectController.deleteVersion(token, projectId, versionName);
   }
 
+  /**
+   * Get a version from a project by his name
+   * 
+   * @param projectId   Identifier of the project
+   * @param versionName Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/getVersionFromName/{versionName}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -348,6 +628,14 @@ public class ProjectResources {
     return ProjectController.getVersionFromName(projectId, versionName);
   }
 
+  /**
+   * Rate a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param score               Score for the projects
+   * @return
+   */
   @POST
   @Path("{projectId}/rateProject")
   @Produces(MediaType.APPLICATION_JSON)
@@ -357,6 +645,14 @@ public class ProjectResources {
     return ProjectController.rateProject(token, projectId, score);
   }
 
+  /**
+   * Get historial from a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/getHistorial")
   public Response getHistorialProject(@HeaderParam("Authorization") final String authorizationHeader,
@@ -366,6 +662,16 @@ public class ProjectResources {
     return ProjectController.getHistorialMessages(token, projectId, versionName);
   }
 
+  /**
+   * Get a short url for a project resource
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param versionName         Name of the version
+   * @return
+   */
   @GET
   @Path("{projectId}/getShortUrl")
   @Produces(MediaType.APPLICATION_JSON)
@@ -377,6 +683,17 @@ public class ProjectResources {
     return ProjectController.getShortUrl(token, projectId, folderName, fileName, versionName);
   }
 
+  /**
+   * Create a short url with a determinated url
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @param folderName          Name of the item
+   * @param fileName            Name of the file
+   * @param versionName         Name of the version
+   * @param shortUrl            Short url
+   * @return
+   */
   @POST
   @Path("{projectId}/getShortUrl")
   @Produces(MediaType.APPLICATION_JSON)
@@ -389,6 +706,13 @@ public class ProjectResources {
     return ProjectController.getShortUrl(token, projectId, folderName, fileName, versionName, shortUrl);
   }
 
+  /**
+   * Get the element shared of a short url
+   * 
+   * @param shortUrl
+   * @return
+   * @throws Exception
+   */
   @GET
   @Path("/shortUrl/{shortUrl}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -396,6 +720,13 @@ public class ProjectResources {
     return ProjectController.getElementByShortUrl(shortUrl);
   }
 
+  /**
+   * Determinated if a user is author of a project
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param projectId           Identifier of the project
+   * @return
+   */
   @GET
   @Path("/{projectId}/isAuthor")
   @Produces(MediaType.APPLICATION_JSON)

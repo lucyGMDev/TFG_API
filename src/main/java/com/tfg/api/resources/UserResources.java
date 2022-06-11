@@ -20,6 +20,12 @@ import org.glassfish.jersey.media.multipart.FormDataParam;
 
 @Path("/user")
 public class UserResources {
+  /**
+   * Get user information
+   * 
+   * @param username
+   * @return
+   */
   @GET
   @Path("/{username}")
   @Produces(MediaType.APPLICATION_JSON)
@@ -27,6 +33,19 @@ public class UserResources {
     return UserController.getUser(username);
   }
 
+  /**
+   * Update the information about the user
+   * 
+   * @param authorizationHeader Data saved on the Authorization Header
+   * @param userEmail
+   * @param username
+   * @param name
+   * @param lastName
+   * @param uploadInputStream   Profile picture for the user
+   * @param fileDetails         Details of the profile picture
+   * @param fileBodyPart        Profile picture for the file
+   * @return
+   */
   @PUT
   @Path("/{userEmail}")
   @Consumes(MediaType.MULTIPART_FORM_DATA)
@@ -42,6 +61,12 @@ public class UserResources {
         fileBodyPart);
   }
 
+  /**
+   * Get the picture file of a user
+   * 
+   * @param pictureName Name of the picture
+   * @return
+   */
   @GET
   @Path("/picture/{pictureName}")
   @Produces({ "image/png", "image/jpeg", "image/webp", "image/bmp" })
@@ -49,12 +74,24 @@ public class UserResources {
     return UserController.getUserPicture(pictureName);
   }
 
+  /**
+   * Determinated if a user exists or not
+   * 
+   * @param userName
+   * @return
+   */
   @GET
   @Path("/{userName}/userExists")
   public Response userExists(@PathParam("userName") final String userName) {
     return UserController.userExists(userName);
   }
 
+  /**
+   * Determinated if a user exists or no by his email
+   * 
+   * @param userEmail
+   * @return
+   */
   @GET
   @Path("/{userEmail}/userExistsEmail")
   public Response userExistsEmail(@PathParam("userEmail") final String userEmail) {

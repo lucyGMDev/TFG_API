@@ -21,6 +21,12 @@ public class JwtUtils {
     jwtTimeExpiration = Integer.parseInt(dotenv.get("JWT_TIME_EXP"));
   }
 
+  /**
+   * Generate a JWT from a email
+   * 
+   * @param email
+   * @return
+   */
   public String generateJwtToken(String email) {
     return Jwts.builder().setSubject(email).setIssuedAt(new Date())
         .setExpiration(new Date(new Date().getTime() + jwtTimeExpiration)).signWith(SignatureAlgorithm.HS512, jwtSecret)
@@ -35,6 +41,12 @@ public class JwtUtils {
     return Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(token).getBody().getIssuer();
   }
 
+  /**
+   * Validate a JWT
+   * 
+   * @param authToken An Authentication JWT
+   * @return
+   */
   public boolean validateJwtToken(String authToken) {
     try {
       Jwts.parser().setSigningKey(jwtSecret).parseClaimsJws(authToken);

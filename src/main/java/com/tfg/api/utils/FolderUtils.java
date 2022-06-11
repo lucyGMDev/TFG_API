@@ -17,6 +17,12 @@ import com.tfg.api.data.FolderMetadata;
 import io.github.cdimascio.dotenv.Dotenv;
 
 public class FolderUtils {
+  /**
+   * Indicate if the item name is valid
+   * 
+   * @param folderName Name of the item
+   * @return
+   */
   public static Boolean folderNameIsValid(String folderName) {
     Dotenv dotenv = Dotenv.load();
     String[] folders = dotenv.get("PROJECT_SUBDIRS").split(",");
@@ -28,6 +34,15 @@ public class FolderUtils {
     return false;
   }
 
+  /**
+   * Indicate if a logger user can access to a item
+   * 
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the item
+   * @param username
+   * @return
+   * @throws Exception
+   */
   public static Boolean userCanAccessFolder(Long projectId, String folderName, String username) throws Exception {
     DBManager database = new DBManager();
     FolderMetadata folderMetadata = getMetadataFolder(projectId, folderName);
@@ -37,6 +52,13 @@ public class FolderUtils {
     return true;
   }
 
+  /**
+   * Indicate if a invited can access to a item
+   * 
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the folder
+   * @throws Exception
+   */
   public static Boolean userCanAccessFolder(Long projectId, String folderName) throws Exception {
     FolderMetadata folderMetadata = getMetadataFolder(projectId, folderName);
     if (!folderMetadata.getIsPublic())
@@ -45,6 +67,15 @@ public class FolderUtils {
     return true;
   }
 
+  /**
+   * Get files from a item
+   * 
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the folder
+   * @param isAuthor   Indicates if the user is an author
+   * @return
+   * @throws Exception
+   */
   public static FileList getFilesFromFolder(Long projectId, String folderName, Boolean isAuthor) throws Exception {
     Dotenv dotenv = Dotenv.load();
     String folderPath = dotenv.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName;
@@ -62,6 +93,14 @@ public class FolderUtils {
     return fileList;
   }
 
+  /**
+   * Get a list with public files from a item
+   * 
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the item
+   * @return
+   * @throws Exception
+   */
   public static FileList getPublicFilesFromFolder(Long projectId, String folderName) throws Exception {
     Dotenv dotenv = Dotenv.load();
     String folderPath = dotenv.get("PROJECTS_ROOT") + File.separator + projectId + File.separator + folderName;
@@ -80,6 +119,14 @@ public class FolderUtils {
     return fileList;
   }
 
+  /**
+   * Get metadata of a publiv item
+   * 
+   * @param projectId  Identifier of the project
+   * @param folderName Name of the item
+   * @return
+   * @throws Exception
+   */
   public static FolderMetadata getMetadataFolder(Long projectId, String folderName) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
     Gson jsonManager = new Gson();
@@ -106,6 +153,13 @@ public class FolderUtils {
     throw new Exception("Error while getting metadata");
   }
 
+  /**
+   * Get a list of metadata about all publics items
+   * 
+   * @param projectId Identifier of the project
+   * @return
+   * @throws Exception
+   */
   public static ArrayList<FolderMetadata> getListPublicFoldersMetadata(Long projectId) throws Exception {
     Dotenv environmentVariablesManager = Dotenv.load();
 

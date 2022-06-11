@@ -11,9 +11,6 @@ public class FolderMetadata {
   private Date lastUpdated;
   private Long numberFiles;
 
-  // TODO: Añadir las modificaciones del last update
-  // TODO: Añadir las modificaciones de numberDownloads a los usuarios registrados
-
   public FolderMetadata(String folderName) {
     this.folderName = folderName;
     this.numberViews = 0L;
